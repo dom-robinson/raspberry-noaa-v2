@@ -1,0 +1,311 @@
+---
+# base station configurations
+#   latitude: south values are negative
+#   longitude: west values are negative
+latitude: 50.816368
+longitude: -0.065110
+altitude: 30.0
+
+#Website language settings
+#   lang_setting: see the 'webpanel/App/Lang' folder for available
+#                 languages (2-letter filename - e.g. ar, bg, de, en, es, nl, sr, ru, it, hu, gr, lt)
+lang_setting: en
+
+# ntp configurations
+#   ntp_server - if you have a local server (e.g. stratum1), you can use this setting
+#        to specify a hostname or ip address to communicate with the ntp server
+ntp_server: ''
+
+# receiver settings
+#   receiver_type - the receiver type which program uses ('rtlsdr', 'airspy_mini', 'airspy_r2' or 'hackrf' or 'sdrplay' or 'mirisdr')
+#   noaa_decoder - which receiver method to use (either 'wxtoimg' or 'satdump')
+#   meteor_decoder - which receiver method to use (either 'meteordemod' or 'satdump')
+receiver_type: 'rtlsdr'
+
+noaa_decoder: 'wxtoimg'
+meteor_decoder: 'meteordemod'
+
+# test settings when running test scripts
+#   test_gain - gain to use for scanner test scripts
+#   test_sdr_device_id - device ID of the SDR device to be used for scanner test scripts
+#   test_enable_bias_tee - whether to enable bias tee when running scanner test scripts
+#   test_freq_offset - receiver frequency offset (PPM)
+test_gain: 29.7
+test_sdr_device_id: 0
+test_enable_bias_tee: true
+test_freq_offset: -6
+
+# whether to schedule specific orbiting objects for capture
+#   <satellite_name>_schedule - whether to schedule captures for the satellite
+#   <satellite_name>_sdr_device_id - device ID of the SDR device to be used for recording for the satellite
+#   <satellite_name>_freq_offset - receiver frequency offset (PPM) for the satellite capture
+#   <satellite_name>_enable_bias_tee - whether to enable bias tee for the recording of the satellite
+#   <satellite_name>_gain - gain setting for specific satellite captures
+#   <satellite_name>_sun_min_elevation - threshold for sun elevation for specific satellite captures
+#   <satellite_name>_sat_min_elevation - threshold for sat elevation for specific satellite captures
+#   <satellite_name>_memory_threshold - for METEOR satellite, minimum free memory (MB) required to store pass in RAM
+
+noaa_memory_threshold: 50
+meteor_m2_memory_threshold: 10
+
+select_best_overlapping_passes: true
+select_meteor_pass_over_noaa: true
+
+noaa_15_schedule: true
+noaa_15_sdr_device_id: 0
+noaa_15_freq_offset: 0
+noaa_15_enable_bias_tee: true
+noaa_15_gain: 8
+noaa_15_sun_min_elevation: 6
+noaa_15_sat_min_elevation: 30
+
+noaa_18_schedule: true
+noaa_18_sdr_device_id: 0
+noaa_18_freq_offset: 0
+noaa_18_enable_bias_tee: true
+noaa_18_gain: 8
+noaa_18_sun_min_elevation: 6
+noaa_18_sat_min_elevation: 30
+
+noaa_19_schedule: true
+noaa_19_sdr_device_id: 0
+noaa_19_freq_offset: 0
+noaa_19_enable_bias_tee: true
+noaa_19_gain: 8
+noaa_19_sun_min_elevation: 6
+noaa_19_sat_min_elevation: 30
+
+meteor_m2_3_schedule: true
+meteor_m2_3_sdr_device_id: 0
+meteor_m2_3_freq_offset: 0
+meteor_m2_3_enable_bias_tee: true
+meteor_m2_3_gain: 8
+meteor_m2_3_schedule_sun_min_elevation: -6
+meteor_m2_3_sun_min_elevation: 6
+meteor_m2_3_sat_min_elevation: 30
+meteor_m2_3_80k_interleaving: false
+
+meteor_m2_4_schedule: false
+meteor_m2_4_sdr_device_id: 0
+meteor_m2_4_freq_offset: 0
+meteor_m2_4_enable_bias_tee: true
+meteor_m2_4_gain: 8
+meteor_m2_4_schedule_sun_min_elevation: -6
+meteor_m2_4_sun_min_elevation: 6
+meteor_m2_4_sat_min_elevation: 30
+meteor_m2_4_80k_interleaving: false
+
+# how many days to schedule passes - note this MUST be an even integer,
+# and the current day counts as "1" - passes will be scheduled until midnight
+# of the `days_to_schedule_passes` final day
+#
+# NOTE: If you want to set this value LOWER than a previously configured
+#       value, you must run the schedule script manually and pass the '-x' switch
+#       after re-running the ./install_and_upgrade.sh script to align the variables:
+#           ./scripts/schedule.sh -x
+days_to_schedule_passes: 2
+
+# pruning capabilities - must be configured in cron (see documentation)
+#   delete_oldest_n - how many oldest captures to delete on each run
+#   delete_older_than_n - delete all images older than this many days
+delete_oldest_n: 0
+delete_older_than_n: 30
+
+# whether audio files should be deleted after images are created
+# if you choose to keep files, they will be automatically deleted after set number of days in delete_files_older_than_days (default is 3 days)
+delete_noaa_audio: false
+delete_meteor_audio: false
+delete_files_older_than_days: 2
+
+# processing settings
+#   flip_meteor_image - whether the meteor image should be flipped
+#   produce_spectrogram - whether to produce a spectrogram image of the audio recording
+#   noaa_crop_telemetry - whether to crop the left/right telemetry in image captures
+#   image_annotation_location - where to place the annotation in images - valid options are:
+#        NorthWest, North, NorthEast, West, Center, East, SouthWest, South, SouthEast
+#   extend_for_annotation - whether to create a black extension on the north/south location of
+#        the image to place the annotation into (vs. overlaying on the captured data)
+#        (note: this will ONLY work if the image_annotation_location is NOT one of [West|Center|East])
+#   produce_noaa_pristine_image - whether to produce a pristine image (unmodified) for larger
+#        composite-based use cases
+#   produce_noaa_pristine_histogram - whether to produce a histogram of the NOAA pristine image
+#   produce_polar_az_el_graph - whether to produce a polar graph that shows the pass
+#        azimuth and elevation over the course of the pass, truncated to satellite min elevation
+#   produce_polar_direction_graph - whether to produce a polar graph that shows the pass
+#        direction over the course of the pass, including AOS and LOS
+#   ground_station_location - free-form text for indicating ground station location in image
+#        annotation (leave blank if you wish to exclude the ground station annotation)
+#   antenna_information - free-form text for indicating antenna information in image
+#        annotation (leave blank if you wish to exclude the antenna information annotation)
+#   show_sun_elevation - whether to show sun elevation in annotation
+#   show_pass_direction - show which direction the satellite is moving in the image annotation
+#   noaa_daytime_enhancements - list of enhancements to create images using during daytime captures
+#        (note: default value seen includes list of ALL supported image processors excluding 'avi' which must be explicitly added when opting to 'enable_animation' below )
+#   noaa_nighttime_enhancements - list of enhancements to create images using during nighttime captures
+#        (note: default value seen includes list of ALL supported image processors excluding 'avi' which must be explicitly added when opting to 'enable_animation' below )
+#   noaa_crop_toptobottom - whether to crop the top and bottom noise out of the noaa capture
+#   noaa_interpolate - whether to interpolate and oversample the images (larger images produced)
+# settings for thermal map output for NOAA captures
+#   noaa_thermal_temp_overlay - whether to overlay a thermal map for color codes to temperature
+#   noaa_thermal_temp_overlay_location - where to place the thermal map in images - valid options are:
+#        NorthWest, North, NorthEast, West, Center, East, SouthWest, South, SouthEast
+
+# noaa map configurations
+# http://usradioguy.com/wp-content/uploads/2020/05/wxtoimgcommand-line.pdf
+#
+# note - colors are in format 0xRRGGBB (only applicable when the
+#        feature is enabled), where:
+#   RR: Red hex value
+#   GG: Green hex value
+#   BB: Blue hex value
+# Colors can alternatively be specified as one of the following:
+#   black, white, gray, light-gray, dark-gray, red, pink dark-red,
+#   light-red, # green, light-green, dark-green, black-green, blue,
+#   light-blue, dark-blue, black-blue, yellow, light-yellow, dark-yellow,
+#   magenta, light-magenta, dark-magenta, cyan, light-cyan, dark-cyan,
+#   orange, dark-orange, purple, lavender, violet, navy, turquoise,
+#   aquamarine, chartreuse, gold, beige, tan, brown, and maroon
+#
+#   noaa_map_crosshair_enable - whether to place a crosshairs on the base station location
+#   noaa_map_crosshair_color - color of base station crosshair
+#   noaa_map_grid_degrees - latitude/longitude lines drawn every grid degrees (default 10.0, 0.0 to disable)
+#   noaa_map_grid_color - color of gridlines for latitude/longitude
+#   noaa_map_country_border_enable - whether to enable country borders in images
+#   noaa_map_country_border_color - color of country borders
+#   noaa_map_state_border_enable - whether to enable state borders in images (Americas only)
+#   noaa_map_state_border_color - color of state borders (Americas only)
+extend_for_annotation: false
+image_annotation_location: 'SouthWest'
+produce_polar_az_el_graph: false
+produce_polar_direction_graph: true
+ground_station_location: 'WRXSEUK-M7MZA'
+antenna_information: 'dipole'
+show_sun_elevation: true
+show_pass_direction: true
+produce_spectrogram: true
+
+noaa_crop_telemetry: true
+produce_noaa_pristine_image: true
+produce_noaa_pristine_histogram: true
+noaa_daytime_enhancements: 'MSA MSA-precip MCIR MCIR-precip HVC-precip HVCT-precip HVC HVCT ZA therm sea CC HE HF MD BD MB JF JJ LC TA WV NO histeq'
+noaa_nighttime_enhancements: 'MCIR MCIR-precip HVCT ZA therm NO TA sea histeq'
+noaa_crop_toptobottom: true
+noaa_interpolate: false
+noaa_jpg_image_quality: 90
+noaa_thermal_temp_overlay: true
+noaa_thermal_temp_overlay_location: 'NorthEast'
+noaa_map_crosshair_enable: true
+noaa_map_crosshair_color: "0xcc3030"
+noaa_map_grid_degrees: 10.0
+noaa_map_grid_color: "0xff0000"
+noaa_map_country_border_enable: true
+noaa_map_country_border_color: "0xffff00"
+noaa_map_state_border_enable: true
+noaa_map_state_border_color: "0xffff00"
+wxtoimg_map_offset: 10.5                    #Change this value only if you see map offsets from the ground on WXtoImg NOAA images
+
+flip_meteor_image: false
+meteor_jpg_image_quality: 90
+meteor_draw_map_overlay: false
+meteor_draw_cities: false
+meteor_map_crosshair_enable: true
+meteor_map_crosshair_color: "#CC3030"
+meteor_map_country_border_color: "#FFFF00"
+meteor_create_rain_probability_overlay: true
+meteor_create_equidistant_projection: true
+meteor_create_mercator_projection: true
+meteor_create_spreaded_images_without_overlay: true
+
+# web server configuration settings
+#   web_server_name - server name to use for the TLS certs and web endpoint - this MUST be
+#                     resolvable to the IP of this host (if you don't have DNS, simply use
+#                     the IP of the Raspberry Pi host)
+#   enable_non_tls - whether to enable a clear-text web listener (default port 80)
+#   web_port - port to run the web server clear-text (non-encrypted) endpoint on
+#   enable_tls - whether to enable the TLS-encrypted web listener (default port 443)
+#   web_tls_port - port to run the TLS listener on
+#   lock_admin_page - whether to require username/password when attempting to access the admin page
+#                     of the webpanel - WARNING: DO NOT SET THIS TO TRUE UNLESS YOU ONLY HAVE A TLS
+#                     ENABLED SITE - SETTING TO TRUE AND RUNNING A CLEARTEXT SITE IS ALMOST CERTAINLY
+#                     ASKING FOR YOUR CREDENTIALS TO BE STOLEN MID-REQUEST
+#   admin_username - username used to access the 'admin' endpoint of the webpanel (WARNING: see 'lock_admin_page' above)
+#   admin_password - password used to access the 'admin' endpoint of the webpanel (WARNING: see 'lock_admin_page' above)
+#                    NOTE: MAKE SURE YOU SET THIS TO SOMETHING REASONABLY COMPLICATED!
+#   web_passes_date_format - format to display the dates in the pass list view - note that this MUST conform to
+#                            https://www.php.net/manual/en/datetime.format.php or else bad things will happen
+#   web_datetime_format - format to display date and time in the web interface for captures - note that this MUST conform to
+#                         https://www.php.net/manual/en/datetime.format.php or else bad things will happen
+web_server_name: wrx.liveencode.com
+enable_non_tls: false
+web_port: 8800
+enable_tls: true
+web_tls_port: 443
+lock_admin_page: true
+admin_username: 'd2'
+admin_password: 'wrxadmin'
+web_passes_date_format: 'm/d/Y'
+web_datetime_format: 'm/d/Y H:i:s'
+
+# log level for output from scripts
+log_level: DEBUG
+
+# whether to enable the satvis visualization for satellite tracking
+# in the passes view - note that this iframe-driven visualization is
+# by default disabled on "extra-small" devices such as phones due to
+# the processing and space requirements
+enable_satvis: false
+
+# whether to enable the image video in the passes view - note that this
+# is by default disabled on "extra-small" devices such as phones due
+# to the processing and space requirements
+enable_animation: false
+
+# operating system configurations
+#   disable_wifi_power_mgmt - if running wireless internet and you want to
+#       disable "sleep" mode of your wifi device (assuming it's wlan0), set
+#       this to true (note: updating this requires a reboot)
+#   disable_at_mail - if you do not want "at" to send mail after job execution
+disable_wifi_power_mgmt: false
+disable_at_mail: false
+
+# push processing settings for sending images elsewhere
+#   * NOTE: Make sure you set up your ~/.msmtprc file before enabling email push!
+#   enable_email_push - whether to send all images to an external email
+#   email_push_address - if enabled, address to send all images to
+#   enable_email_schedule_push - whether to email an image of the nightly-created
+#       pass-list schedule to the email destination
+#   enable_discord_push - whether to push images to a Discord channel
+#   discord_webhook_url - webhook url for the Discord channel
+#   enable_twitter_push - whether to push images to a Twitter feed
+#     * see docs/twitter_push.md for instructions
+#   enable_matrix_push - whether to push images to a Matrix room
+#     * see docs/matrix_push.md for instructions
+
+# Whether you want to contribute to creation of community created Meteor and NOAA composites gathered from RN2 stations from all around the world
+# We do not collect any personal data
+# Thank you very much if you choose to contribute :)
+
+contribute_to_community_composites: true
+contribute_to_community_composites_url: 'https://voxgalactica.com/upload'
+
+enable_email_push: true
+email_push_address: trigger@applet.ifttt.com
+enable_email_schedule_push: true
+enable_discord_push: true
+discord_noaa_webhook_url: 'https://discord.com/api/webhooks/1234473306514522113/pd4WHMG4-q5eTBADTr58I38Dyw0Fcqo0Epu9GTMWdboThlvgLhQ-zRG4SkgEKKX0trak'
+discord_meteor_webhook_url: 'https://discord.com/api/webhooks/1234473165665599489/kYhy1Ay5qUmC9qFWOTabZCsfmtybXmjs6eIf-9eoX7uJMZCV60r2SwUi7XflSvwRTs9e'
+enable_pushover_push: false
+pushover_link_url: 'https://<url-to-webpanel>/captures/listImages'
+pushover_apitoken: ''
+pushover_user: ''
+pushover_prio: 0
+enable_twitter_push: false
+enable_mastodon_push: false
+enable_facebook_push: false
+enable_instagram_push: false
+enable_slack_push: false
+slack_push_url: ''
+slack_push_to: ''
+slack_link: 'https://XXXX/captures/listImages'
+enable_matrix_push: false
+...

@@ -1,0 +1,111 @@
+---
+- name: remove old scheduling cron job
+  cron:
+    disabled: yes
+    name: schedule passes
+    minute: 1
+    hour: 0
+    job: "{{ noaa_home }}/scripts/schedule.sh"
+
+- name: create scheduling cron job
+  cron:
+    name: schedule passes daily
+    minute: 1
+    hour: 0
+    job: "{{ noaa_home }}/scripts/schedule.sh -t"
+
+- name: create scheduling cron job @ reboot
+  cron:
+    name: schedule passes after reboot
+    special_time: reboot
+    job: "{{ noaa_home }}/scripts/schedule.sh"
+
+- name: create database
+  shell: "/usr/bin/sqlite3 {{ noaa_home }}/db/panel.db < {{ noaa_home }}/db_migrations/00_seed_schema.sql"
+  args:
+    executable: /bin/bash
+    creates: "{{ noaa_home }}/db/panel.db"
+
+- name: create map directory
+  file:
+    path: "{{ noaa_home }}/tmp/map"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0755
+
+- name: create meteor directory
+  file:
+    path: "{{ noaa_home }}/tmp/meteor"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0755
+
+- name: create annotation directory
+  file:
+    path: "{{ noaa_home }}/tmp/annotation"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0755
+
+- name: create scanner directory
+  file:
+    path: "{{ noaa_home }}/tmp/scanner"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0755
+
+- name: create images directory
+  become: yes
+  file:
+    path: "{{ images_output }}"
+    state: directory
+    owner: "{{ target_user }}"
+    mode: 0775
+
+- name: create thumbnails directory
+  become: yes
+  file:
+    path: "{{ images_output }}/thumb"
+    state: directory
+    owner: "{{ target_user }}"
+    mode: 0775
+
+- name: create audio root directory
+  become: yes
+  file:
+    path: "{{ audio_output }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0775
+
+- name: create noaa audio directory
+  become: yes
+  file:
+    path: "{{ audio_output }}/noaa"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0775
+
+- name: create meteor audio directory
+  become: yes
+  file:
+    path: "{{ audio_output }}/meteor"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: 0775
+
+- name: create videos directory
+  become: yes
+  file:
+    path: "{{ videos_output }}"
+    state: directory
+    owner: "{{ target_user }}"
+    mode: 0775
+...
