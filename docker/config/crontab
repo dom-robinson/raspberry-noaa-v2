@@ -1,12 +1,9 @@
 # RN2 Crontab for Docker container
-# This file is mounted into the container
+# This file is installed into the container's crontab
 
 # Schedule passes daily at 00:01
-1 0 * * * root /opt/raspberry-noaa-v2/scripts/schedule.sh -t >> /var/log/raspberry-noaa-v2/schedule.log 2>&1
+1 0 * * * . /home/pi/.noaa-v2.conf && cd /opt/raspberry-noaa-v2 && /opt/raspberry-noaa-v2/scripts/schedule.sh -t >> /var/log/raspberry-noaa-v2/schedule.log 2>&1
 
 # Prune old images daily at 00:01
-1 0 * * * root /opt/raspberry-noaa-v2/scripts/prune_scripts/prune_older_than.sh >> /var/log/raspberry-noaa-v2/prune.log 2>&1
-
-# Schedule passes on container start (handled by entrypoint instead)
-# @reboot /opt/raspberry-noaa-v2/scripts/schedule.sh
+1 0 * * * . /home/pi/.noaa-v2.conf && cd /opt/raspberry-noaa-v2 && /opt/raspberry-noaa-v2/scripts/prune_scripts/prune_older_than.sh >> /var/log/raspberry-noaa-v2/prune.log 2>&1
 

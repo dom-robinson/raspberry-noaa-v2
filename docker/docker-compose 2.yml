@@ -33,8 +33,11 @@ services:
       # Logs - persistent named volume
       - rn2-logs:/var/log/raspberry-noaa-v2
       
-      # At jobs spool (for scheduled captures) - persistent
+      # At jobs spool (for scheduled captures)
       - rn2-at-spool:/var/spool/cron/atjobs
+      
+      # Crontab
+      - ./config/crontab:/etc/cron.d/rn2:ro
     
     # Internal port - Traefik handles external routing
     expose:
