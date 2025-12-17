@@ -27,6 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
     python3-pip \
+    python3-numpy \
+    python3-pil \
+    # Build tools (needed for some pip packages)
+    build-essential \
+    python3-dev \
     # Scheduling
     at \
     cron \
@@ -44,13 +49,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Upgrade pip first (Bullseye's pip has TOML parsing bugs)
+RUN pip3 install --upgrade pip
+
+# Install Python dependencies (numpy and Pillow installed via apt above)
 RUN pip3 install --no-cache-dir \
     ephem \
     pytz \
     requests \
-    Pillow \
-    numpy \
     jinja2
 
 # Create directories
