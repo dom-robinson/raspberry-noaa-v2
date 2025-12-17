@@ -7,7 +7,7 @@ class Config {
   const CAPTURES_PER_PAGE = 18;
 
   # base directory for sqlite database
-  const DB_FILE = '/home/pi/raspberry-noaa-v2/db/panel.db';
+  const DB_FILE = '/opt/raspberry-noaa-v2/db/panel.db';
 
   # see files in App/Lang directory for available translations
   const LANG = 'en';

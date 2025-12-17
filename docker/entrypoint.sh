@@ -15,6 +15,10 @@ chown -R pi:pi /srv/audio /tmp/ramfs /var/log/raspberry-noaa-v2 \
     /opt/raspberry-noaa-v2/tmp /opt/raspberry-noaa-v2/db \
     /home/pi/.noaa-v2.conf /home/pi/.predict
 
+# Database must be readable by www-data (PHP-FPM)
+chmod 755 /opt/raspberry-noaa-v2/db
+chmod 644 /opt/raspberry-noaa-v2/db/panel.db 2>/dev/null || true
+
 # Initialize database if it doesn't exist
 if [ ! -f /opt/raspberry-noaa-v2/db/panel.db ]; then
     echo "Initializing database..."
