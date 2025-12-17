@@ -7,3 +7,33 @@
 
 # environment-specific config file
 config/settings.yml
+
+# Temporary files
+tmp/
+*.wav
+*.cadu
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vendor (we track these separately)
+wx-new-deployed/vendor/
+
+# Database (local data)
+raspberry-noaa-v2/db/panel.db
+
+# Secrets
+*.env
+docker/config/settings.yml
+*.deb
