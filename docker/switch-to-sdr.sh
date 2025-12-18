@@ -50,3 +50,5 @@ echo "SDR: running"
 echo ""
 echo "To switch back: ./switch-to-rn2.sh"
 
+
+

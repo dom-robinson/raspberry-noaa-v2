@@ -40,3 +40,5 @@ echo "RN2: running"
 echo ""
 echo "To switch back: ./switch-to-sdr.sh"
 
+
+

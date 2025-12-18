@@ -56,3 +56,5 @@ echo "To test without stopping native services:"
 echo "  sudo docker-compose up --build"
 echo "  # Access at http://wrx:8180 (local only)"
 
+
+

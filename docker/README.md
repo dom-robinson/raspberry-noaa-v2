@@ -209,3 +209,5 @@ docker exec rn2 tail -f /var/log/raspberry-noaa-v2/output.log
 docker exec rn2 sqlite3 /opt/raspberry-noaa-v2/db/panel.db ".backup /srv/images/panel.db.bak"
 ```
 
+
+

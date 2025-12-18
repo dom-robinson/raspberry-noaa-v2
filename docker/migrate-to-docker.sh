@@ -90,3 +90,5 @@ echo "  docker-compose down"
 echo "  systemctl start nginx php7.4-fpm"
 echo "  crontab $BACKUP_DIR/crontab.bak"
 
+
+
