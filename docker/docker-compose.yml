@@ -21,7 +21,8 @@ services:
     
     volumes:
       # Persistent data - bind to existing host directories
-      - /srv/images:/srv/images
+      # Images now stored on NAS at /home/pi/nas/wrx-images
+      - /home/pi/nas/wrx-images:/srv/images
       - /srv/videos:/srv/videos
       
       # Database - persistent named volume
