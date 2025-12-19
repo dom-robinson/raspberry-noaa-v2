@@ -51,6 +51,7 @@ fi
 mode="$([[ "${!interleaving}" == "true" ]] && echo "_80k" || echo "")"
 
 # Determine baseband format from file extension or default to u8 (rtl_sdr default)
+# rtl_sdr outputs u8 format by default
 BASEBAND_FORMAT="u8"
 case "$BASEBAND_FILE" in
     *.f32) BASEBAND_FORMAT="f32" ;;

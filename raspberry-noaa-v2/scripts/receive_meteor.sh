@@ -166,7 +166,7 @@ polar_direction=0
 # Record raw baseband data for later replay/testing (if enabled)
 BASEBAND_RECORDING_ENABLED="${METEOR_BASEBAND_RECORDING:-false}"
 BASEBAND_OUTPUT_DIR="${METEOR_AUDIO_OUTPUT}/baseband"
-BASEBAND_FILE="${BASEBAND_OUTPUT_DIR}/${FILENAME_BASE}.s16"
+BASEBAND_FILE="${BASEBAND_OUTPUT_DIR}/${FILENAME_BASE}.u8"
 BASEBAND_PID=""
 
 if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; then
