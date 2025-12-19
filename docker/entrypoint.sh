@@ -7,13 +7,22 @@ echo "=== RN2 Docker Container Starting ==="
 mkdir -p /srv/images /srv/videos /srv/audio/noaa /srv/audio/meteor \
     /var/log/raspberry-noaa-v2 /run/php /tmp/ramfs \
     /opt/raspberry-noaa-v2/tmp /opt/raspberry-noaa-v2/db \
-    /var/spool/cron/crontabs /var/spool/cron/atjobs
+    /opt/raspberry-noaa-v2/tmp/meteor \
+    /opt/raspberry-noaa-v2/tmp/annotation \
+    /var/spool/cron/crontabs /var/spool/cron/atjobs \
+    /usr/share/satdump
 
 # Set permissions - images/videos readable by www-data, logs/db owned by pi
 chown -R www-data:www-data /srv/images /srv/videos /var/www/wx-new
 chown -R pi:pi /srv/audio /tmp/ramfs /var/log/raspberry-noaa-v2 \
     /opt/raspberry-noaa-v2/tmp /opt/raspberry-noaa-v2/db \
+    /opt/raspberry-noaa-v2/tmp/meteor \
+    /opt/raspberry-noaa-v2/tmp/annotation \
     /home/pi/.noaa-v2.conf /home/pi/.predict
+
+# Fix permissions for annotation config files (needed by image processing)
+chmod -R 755 /opt/raspberry-noaa-v2/config/annotation 2>/dev/null || true
+chown -R pi:pi /opt/raspberry-noaa-v2/config/annotation 2>/dev/null || true
 
 # Database must be readable by www-data (PHP-FPM)
 chmod 755 /opt/raspberry-noaa-v2/db
@@ -43,6 +52,14 @@ if ! command -v satdump >/dev/null 2>&1; then
     echo "   docker exec rn2 ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1"
 else
     echo "✓ satdump found"
+    # Check for satdump config file
+    if [ ! -f /usr/share/satdump/satdump_cfg.json ]; then
+        echo "⚠ WARNING: satdump config file not found at /usr/share/satdump/satdump_cfg.json"
+        echo "   Meteor captures may fail. Copy from host:"
+        echo "   docker cp /usr/share/satdump rn2:/usr/share/"
+    else
+        echo "✓ satdump config found"
+    fi
 fi
 
 # Test RTL-SDR connectivity

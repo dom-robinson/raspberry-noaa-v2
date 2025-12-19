@@ -32,6 +32,13 @@ docker cp /usr/lib/arm-linux-gnueabihf/libnng.so.1.4.0 $CONTAINER_NAME:/usr/lib/
 # Create symlink for libnng
 docker exec $CONTAINER_NAME ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1 2>/dev/null || true
 
+# Copy satdump config directory
+echo "Copying satdump config..."
+docker exec $CONTAINER_NAME mkdir -p /usr/share/satdump
+docker cp /usr/share/satdump/satdump_cfg.json $CONTAINER_NAME:/usr/share/satdump/ 2>/dev/null || true
+docker cp /usr/share/satdump/pipelines $CONTAINER_NAME:/usr/share/satdump/ 2>/dev/null || true
+docker cp /usr/share/satdump/resources $CONTAINER_NAME:/usr/share/satdump/ 2>/dev/null || true
+
 # Install missing dependencies
 echo "Installing missing dependencies..."
 docker exec $CONTAINER_NAME apt-get update -qq

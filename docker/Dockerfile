@@ -63,7 +63,14 @@ RUN pip3 install --no-cache-dir \
     ephem \
     pytz \
     requests \
-    jinja2
+    jinja2 \
+    pyyaml
+
+# Install wkhtmltoimage for annotation generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wkhtmltopdf \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create directories
 RUN mkdir -p /srv/images /srv/videos /var/log/raspberry-noaa-v2 /run/php \
