@@ -31,6 +31,20 @@ if [ ! -f /opt/raspberry-noaa-v2/db/panel.db ]; then
     chown pi:pi /opt/raspberry-noaa-v2/db/panel.db
 fi
 
+# Check for satdump (required for Meteor captures)
+if ! command -v satdump >/dev/null 2>&1; then
+    echo "⚠ ERROR: satdump not found! Meteor captures will fail."
+    echo "   The .deb package may be corrupted. You can copy satdump from the host:"
+    echo "   docker cp /usr/bin/satdump rn2:/usr/bin/satdump"
+    echo "   docker cp /usr/lib/libsatdump_core.so rn2:/usr/lib/"
+    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libjemalloc.so.2 rn2:/usr/lib/arm-linux-gnueabihf/"
+    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libvolk.so.2.4 rn2:/usr/lib/arm-linux-gnueabihf/"
+    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libnng.so.1.4.0 rn2:/usr/lib/arm-linux-gnueabihf/"
+    echo "   docker exec rn2 ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1"
+else
+    echo "✓ satdump found"
+fi
+
 # Test RTL-SDR connectivity
 echo "Testing RTL-SDR..."
 if rtl_test -t 2>&1 | grep -q "Found"; then

@@ -47,6 +47,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     iputils-ping \
     netbase \
+    # SatDump dependencies (if .deb install fails, these are needed for manual install)
+    libfftw3-3 \
+    libfftw3-single3 \
+    liborc-0.4-0 \
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -71,11 +75,15 @@ COPY raspberry-noaa-v2/software/satdump_*_armhf.deb /tmp/satdump.deb
 COPY raspberry-noaa-v2/software/wxtoimg-armhf*.deb /tmp/wxtoimg.deb
 COPY raspberry-noaa-v2/software/predict_*_armhf.deb /tmp/predict.deb
 
-RUN dpkg -i /tmp/satdump.deb 2>/dev/null; apt-get install -f -y || true \
+# Install packages - satdump .deb may be corrupted, so we'll handle it in entrypoint if needed
+RUN dpkg -i /tmp/satdump.deb 2>/dev/null; apt-get install -f -y || echo "satdump .deb install failed, will use fallback" \
     && dpkg -i /tmp/wxtoimg.deb 2>/dev/null; apt-get install -f -y || true \
     && dpkg -i /tmp/predict.deb 2>/dev/null; apt-get install -f -y || true \
     && rm -f /tmp/*.deb \
     && which predict || echo "predict installed"
+
+# Create directory for satdump libraries
+RUN mkdir -p /usr/lib/arm-linux-gnueabihf
 
 # Accept wxtoimg license (for root and pi user)
 RUN mkdir -p /root/.wxtoimg /home/pi/.wxtoimg \
