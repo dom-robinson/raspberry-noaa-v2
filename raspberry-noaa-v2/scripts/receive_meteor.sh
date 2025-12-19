@@ -163,10 +163,62 @@ polar_direction=0
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+# Record raw baseband data for later replay/testing (if enabled)
+BASEBAND_RECORDING_ENABLED="${METEOR_BASEBAND_RECORDING:-false}"
+BASEBAND_OUTPUT_DIR="${METEOR_AUDIO_OUTPUT}/baseband"
+BASEBAND_FILE="${BASEBAND_OUTPUT_DIR}/${FILENAME_BASE}.s16"
+BASEBAND_PID=""
+
+if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; then
+    log "Recording raw baseband data for replay: $BASEBAND_FILE" "INFO"
+    mkdir -p "$BASEBAND_OUTPUT_DIR"
+    
+    # Record raw IQ data using rtl_sdr in the background
+    # Format: 8-bit unsigned samples (u8), sample rate from config
+    # rtl_sdr outputs u8 format by default
+    FREQ_HZ=$((METEOR_FREQUENCY * 1000000))
+    SAMPLE_RATE_INT=${samplerate%.*}
+    
+    # Build rtl_sdr command (no dashes for options)
+    RTL_SDR_CMD="rtl_sdr"
+    if [ -n "$SDR_DEVICE_ID" ] && [ "$SDR_DEVICE_ID" != "0" ]; then
+        RTL_SDR_CMD="$RTL_SDR_CMD -d $SDR_DEVICE_ID"
+    fi
+    RTL_SDR_CMD="$RTL_SDR_CMD -f $FREQ_HZ -s $SAMPLE_RATE_INT"
+    if [ -n "$GAIN" ]; then
+        RTL_SDR_CMD="$RTL_SDR_CMD -g $GAIN"
+    fi
+    if [ "$BIAS_TEE" == "-T" ]; then
+        RTL_SDR_CMD="$RTL_SDR_CMD -T"
+    fi
+    # Calculate number of samples to read (duration * samplerate)
+    NUM_SAMPLES=$((CAPTURE_TIME * SAMPLE_RATE_INT))
+    RTL_SDR_CMD="$RTL_SDR_CMD -n $NUM_SAMPLES $BASEBAND_FILE"
+    
+    log "Baseband recording command: $RTL_SDR_CMD" "INFO"
+    $RTL_SDR_CMD >> $NOAA_LOG 2>&1 &
+    BASEBAND_PID=$!
+    log "Baseband recording started (PID: $BASEBAND_PID)" "INFO"
+fi
+
 log "Recording ${NOAA_HOME} via $receiver at ${METEOR_FREQUENCY} MHz using SatDump record " "INFO"
 audio_temporary_storage_directory="$(dirname "${RAMFS_FILE_BASE}")"
 $SATDUMP live meteor_m2-x_lrpt${mode} "$audio_temporary_storage_directory" --source $receiver --samplerate $samplerate --frequency "${METEOR_FREQUENCY}e6" $gain_option $GAIN $bias_tee_option $finish_processing --timeout $CAPTURE_TIME >> $NOAA_LOG 2>&1
 mv "$audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" "${RAMFS_AUDIO_BASE}.cadu"
+
+# Wait for baseband recording to finish (it should finish automatically due to -n option)
+if [ -n "$BASEBAND_PID" ]; then
+    log "Waiting for baseband recording to complete (PID: $BASEBAND_PID)" "INFO"
+    wait $BASEBAND_PID 2>/dev/null || true
+    
+    if [ -f "$BASEBAND_FILE" ]; then
+        BASEBAND_SIZE=$(du -h "$BASEBAND_FILE" | cut -f1)
+        log "Baseband recording saved: $BASEBAND_FILE (${BASEBAND_SIZE})" "INFO"
+        log "Replay with: $NOAA_HOME/scripts/replay_meteor_baseband.sh $BASEBAND_FILE" "INFO"
+    else
+        log "WARNING: Baseband file not created: $BASEBAND_FILE" "WARN"
+    fi
+fi
 
 log "Removing old bmp, gcp, and dat files" "INFO"
 find "$NOAA_HOME/tmp/meteor" -type f \( -name "*.gcp" -o -name "*.bmp" -o -name "*.dat" \) -mtime +1 -delete >> $NOAA_LOG 2>&1

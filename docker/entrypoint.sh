@@ -5,6 +5,7 @@ echo "=== RN2 Docker Container Starting ==="
 
 # Ensure directories exist with correct permissions
 mkdir -p /srv/images /srv/videos /srv/audio/noaa /srv/audio/meteor \
+    /srv/audio/meteor/baseband \
     /var/log/raspberry-noaa-v2 /run/php /tmp/ramfs \
     /opt/raspberry-noaa-v2/tmp /opt/raspberry-noaa-v2/db \
     /opt/raspberry-noaa-v2/tmp/meteor \
