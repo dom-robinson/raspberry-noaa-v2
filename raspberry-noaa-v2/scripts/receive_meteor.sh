@@ -176,8 +176,9 @@ if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; t
     # Record raw IQ data using rtl_sdr in the background
     # Format: 8-bit unsigned samples (u8), sample rate from config
     # rtl_sdr outputs u8 format by default
-    FREQ_HZ=$((METEOR_FREQUENCY * 1000000))
-    SAMPLE_RATE_INT=${samplerate%.*}
+    # Convert MHz to Hz (handle decimal frequencies like 137.1)
+    FREQ_HZ=$(echo "$METEOR_FREQUENCY * 1000000" | bc | cut -d. -f1)
+    SAMPLE_RATE_INT=$(echo "$samplerate" | sed 's/e6/000000/' | sed 's/e3/000/' | cut -d. -f1)
     
     # Build rtl_sdr command (no dashes for options)
     RTL_SDR_CMD="rtl_sdr"
