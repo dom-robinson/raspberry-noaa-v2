@@ -178,7 +178,8 @@ if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; t
     # rtl_sdr outputs u8 format by default
     # Convert MHz to Hz (handle decimal frequencies like 137.1)
     FREQ_HZ=$(echo "$METEOR_FREQUENCY * 1000000" | bc | cut -d. -f1)
-    SAMPLE_RATE_INT=$(echo "$samplerate" | sed 's/e6/000000/' | sed 's/e3/000/' | cut -d. -f1)
+    # Convert scientific notation sample rate (e.g., 1.024e6) to integer
+    SAMPLE_RATE_INT=$(echo "$samplerate" | bc | cut -d. -f1)
     
     # Build rtl_sdr command (no dashes for options)
     RTL_SDR_CMD="rtl_sdr"
