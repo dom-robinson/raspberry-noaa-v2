@@ -51,8 +51,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libfftw3-3 \
     libfftw3-single3 \
     libfftw3-bin \
-    libfftw3-threads3 \
-    libfftw3-omp3 \
     liborc-0.4-0 \
     libpng16-16 \
     libnng1 \
@@ -107,7 +105,17 @@ COPY docker/satdump-files/usr/lib/libsatdump_core.so /usr/lib/libsatdump_core.so
 COPY docker/satdump-files/usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
 COPY docker/satdump-files/usr/share/satdump/ /usr/share/satdump/
 COPY docker/satdump-files/usr/lib/satdump/plugins/ /usr/lib/satdump/plugins/
-RUN chmod +x /usr/bin/satdump \
+# Create symlinks for libraries that plugins expect in /lib/arm-linux-gnueabihf/
+# Some plugins hardcode paths to /lib/ instead of /usr/lib/
+RUN mkdir -p /lib/arm-linux-gnueabihf \
+    && for lib in libatomic.so.1 libdeflate.so.0 libgomp.so.1 libjbig.so.0 \
+                  libjpeg.so.62 libopencl.so.1 libstdc++.so.6 libtiff.so.5 \
+                  libvolk.so.2.4 libwebp.so.6 libnng.so.1 libjemalloc.so.2; do \
+        if [ -f "/usr/lib/arm-linux-gnueabihf/$lib" ] && [ ! -e "/lib/arm-linux-gnueabihf/$lib" ]; then \
+            ln -sf "/usr/lib/arm-linux-gnueabihf/$lib" "/lib/arm-linux-gnueabihf/$lib" || true; \
+        fi; \
+    done \
+    && chmod +x /usr/bin/satdump \
     && ldconfig || true \
     && which satdump || (echo "ERROR: satdump not found after copy!" && exit 1)
 
