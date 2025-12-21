@@ -92,10 +92,8 @@ COPY docker/satdump-files/usr/bin/satdump /usr/bin/satdump
 COPY docker/satdump-files/usr/lib/libsatdump_core.so /usr/lib/libsatdump_core.so
 COPY docker/satdump-files/usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
 COPY docker/satdump-files/usr/share/satdump/ /usr/share/satdump/
-RUN if [ -d docker/satdump-files/usr/lib/satdump ] && [ "$(ls -A docker/satdump-files/usr/lib/satdump 2>/dev/null)" ]; then \
-        cp -r docker/satdump-files/usr/lib/satdump/* /usr/lib/satdump/ || true; \
-    fi \
-    && chmod +x /usr/bin/satdump \
+COPY docker/satdump-files/usr/lib/satdump/plugins/ /usr/lib/satdump/plugins/
+RUN chmod +x /usr/bin/satdump \
     && ldconfig || true \
     && which satdump || (echo "ERROR: satdump not found after copy!" && exit 1)
 
