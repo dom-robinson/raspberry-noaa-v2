@@ -47,10 +47,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     iputils-ping \
     netbase \
-    # SatDump dependencies
+    # SatDump dependencies (complete set needed for plugins to work)
     libfftw3-3 \
     libfftw3-single3 \
     libfftw3-bin \
+    libfftw3-threads3 \
+    libfftw3-omp3 \
     liborc-0.4-0 \
     libpng16-16 \
     libnng1 \
@@ -58,6 +60,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libzstd1 \
     libjemalloc2 \
     libglfw3 \
+    libatomic1 \
+    libdeflate0 \
+    libgomp1 \
+    libjbig0 \
+    libjpeg62-turbo \
+    liblzma5 \
+    libopencl1 \
+    libstdc++6 \
+    libtiff5 \
+    libvolk2.4 \
+    libwebp6 \
+    libz1 \
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
