@@ -190,9 +190,8 @@ if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; t
     if [ -n "$GAIN" ]; then
         RTL_SDR_CMD="$RTL_SDR_CMD -g $GAIN"
     fi
-    if [ "$BIAS_TEE" == "-T" ]; then
-        RTL_SDR_CMD="$RTL_SDR_CMD -T"
-    fi
+    # Note: rtl_sdr does not support bias tee option (-T)
+    # Bias tee is only available in SatDump, not in rtl_sdr
     # Calculate number of samples to read (duration * samplerate)
     NUM_SAMPLES=$((CAPTURE_TIME * SAMPLE_RATE_INT))
     RTL_SDR_CMD="$RTL_SDR_CMD -n $NUM_SAMPLES $BASEBAND_FILE"
