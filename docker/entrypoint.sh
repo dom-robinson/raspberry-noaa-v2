@@ -44,15 +44,28 @@ fi
 # Check for satdump (required for Meteor captures)
 if ! command -v satdump >/dev/null 2>&1; then
     echo "⚠ ERROR: satdump not found! Meteor captures will fail."
-    echo "   The .deb package may be corrupted. You can copy satdump from the host:"
-    echo "   docker cp /usr/bin/satdump rn2:/usr/bin/satdump"
-    echo "   docker cp /usr/lib/libsatdump_core.so rn2:/usr/lib/"
-    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libjemalloc.so.2 rn2:/usr/lib/arm-linux-gnueabihf/"
-    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libvolk.so.2.4 rn2:/usr/lib/arm-linux-gnueabihf/"
-    echo "   docker cp /usr/lib/arm-linux-gnueabihf/libnng.so.1.4.0 rn2:/usr/lib/arm-linux-gnueabihf/"
-    echo "   docker exec rn2 ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1"
+    echo "   Attempting to install from .deb if available..."
+    if [ -f /tmp/satdump.deb ]; then
+        dpkg -i /tmp/satdump.deb || true
+        apt-get install -f -y || true
+    fi
+    if ! command -v satdump >/dev/null 2>&1; then
+        echo "   ERROR: satdump still not found after retry!"
+        echo "   The .deb package may be corrupted. Container will continue but Meteor captures will fail."
+    else
+        echo "✓ satdump installed successfully"
+    fi
 else
     echo "✓ satdump found"
+fi
+
+# Verify satdump works
+if command -v satdump >/dev/null 2>&1; then
+    if satdump --version >/dev/null 2>&1; then
+        echo "✓ satdump is functional"
+    else
+        echo "⚠ WARNING: satdump found but not functional (missing libraries?)"
+    fi
     # Check for satdump config file
     if [ ! -f /usr/share/satdump/satdump_cfg.json ]; then
         echo "⚠ WARNING: satdump config file not found at /usr/share/satdump/satdump_cfg.json"
@@ -61,6 +74,14 @@ else
     else
         echo "✓ satdump config found"
     fi
+fi
+
+# Verify pyyaml is installed
+if python3 -c "import yaml" >/dev/null 2>&1; then
+    echo "✓ pyyaml installed"
+else
+    echo "⚠ WARNING: pyyaml not found, installing..."
+    pip3 install --no-cache-dir pyyaml || echo "   ERROR: Failed to install pyyaml"
 fi
 
 # Test RTL-SDR connectivity

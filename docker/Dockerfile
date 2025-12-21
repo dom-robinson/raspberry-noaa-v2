@@ -64,7 +64,8 @@ RUN pip3 install --no-cache-dir \
     pytz \
     requests \
     jinja2 \
-    pyyaml
+    pyyaml \
+    && python3 -c "import yaml" || (echo "ERROR: pyyaml not installed correctly!" && exit 1)
 
 # Install wkhtmltoimage for annotation generation
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -82,10 +83,15 @@ COPY raspberry-noaa-v2/software/satdump_*_armhf.deb /tmp/satdump.deb
 COPY raspberry-noaa-v2/software/wxtoimg-armhf*.deb /tmp/wxtoimg.deb
 COPY raspberry-noaa-v2/software/predict_*_armhf.deb /tmp/predict.deb
 
-# Install packages - satdump .deb may be corrupted, so we'll handle it in entrypoint if needed
-RUN dpkg -i /tmp/satdump.deb 2>/dev/null; apt-get install -f -y || echo "satdump .deb install failed, will use fallback" \
-    && dpkg -i /tmp/wxtoimg.deb 2>/dev/null; apt-get install -f -y || true \
-    && dpkg -i /tmp/predict.deb 2>/dev/null; apt-get install -f -y || true \
+# Install packages - verify each installation succeeds
+RUN dpkg -i /tmp/satdump.deb || true \
+    && apt-get install -f -y \
+    && dpkg -l | grep -q "^ii.*satdump" || (echo "ERROR: satdump package not installed!" && exit 1) \
+    && which satdump || (echo "ERROR: satdump binary not found!" && exit 1) \
+    && dpkg -i /tmp/wxtoimg.deb || true \
+    && apt-get install -f -y || true \
+    && dpkg -i /tmp/predict.deb || true \
+    && apt-get install -f -y || true \
     && rm -f /tmp/*.deb \
     && which predict || echo "predict installed"
 
