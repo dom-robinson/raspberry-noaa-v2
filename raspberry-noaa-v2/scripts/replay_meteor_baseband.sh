@@ -96,10 +96,37 @@ mkdir -p "$OUTPUT_DIR"
 log "Processing baseband through SatDump..." "INFO"
 cd "$OUTPUT_DIR"
 
+# Attempt processing with container SatDump first
 $SATDUMP meteor_m2-x_lrpt${mode} baseband "$BASEBAND_FILE" "$OUTPUT_DIR" \
     --samplerate $SAMPLERATE \
     --baseband_format $BASEBAND_FORMAT \
     --finish_processing >> $NOAA_LOG 2>&1
+
+# If it failed with segfault (exit code 139) and we're in a container, try host SatDump
+if [ $? -eq 139 ] && [ -f /.dockerenv ]; then
+    log "Container SatDump crashed (segfault). Trying host SatDump as fallback..." "WARN"
+    # Copy file to host temp and process there
+    HOST_TMP="/tmp/replay_baseband_$(basename $BASEBAND_FILE)"
+    docker cp "$BASEBAND_FILE" "$(hostname):$HOST_TMP" 2>/dev/null || {
+        log "ERROR: Cannot copy file to host for processing" "ERROR"
+        exit 1
+    }
+    
+    HOST_OUTPUT="/tmp/replay_output_$(date +%s)"
+    docker exec "$(hostname)" satdump meteor_m2-x_lrpt${mode} baseband "$HOST_TMP" "$HOST_OUTPUT" \
+        --samplerate $SAMPLERATE \
+        --baseband_format $BASEBAND_FORMAT \
+        --finish_processing 2>&1 | tee -a $NOAA_LOG
+    
+    if [ $? -eq 0 ]; then
+        # Copy results back to container
+        docker cp "$(hostname):$HOST_OUTPUT/." "$OUTPUT_DIR/" 2>/dev/null || true
+        log "Host SatDump processing completed, results copied back" "INFO"
+    else
+        log "ERROR: Host SatDump also failed" "ERROR"
+        exit 1
+    fi
+fi
 
 if [ $? -eq 0 ]; then
     log "Baseband processing completed successfully" "INFO"
