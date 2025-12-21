@@ -20,18 +20,21 @@ services:
       - NOAA_HOME=/opt/raspberry-noaa-v2
     
     volumes:
-      # Persistent data - bind to existing host directories
-      # Images now stored on NAS at /home/pi/nas/wrx-images
+      # Persistent data - all stored on NAS to survive SD card replacement
+      # Images stored on NAS
       - /home/pi/nas/wrx-images:/srv/images
-      - /srv/videos:/srv/videos
+      # Videos stored on NAS
+      - /home/pi/nas/wrx-videos:/srv/videos
+      # Audio stored on NAS (includes baseband recordings)
+      - /home/pi/nas/wrx-audio:/srv/audio
       
-      # Database - persistent named volume
+      # Database - persistent named volume (on SD card, but small and can be recreated)
       - rn2-db:/opt/raspberry-noaa-v2/db
       
-      # Configuration (mount from host for easy editing)
-      - ./config/settings.yml:/opt/raspberry-noaa-v2/config/settings.yml:ro
+      # Configuration - stored on NAS for easy editing and backup
+      - /home/pi/nas/wrx-config/settings.yml:/opt/raspberry-noaa-v2/config/settings.yml:ro
       
-      # Logs - persistent named volume
+      # Logs - persistent named volume (on SD card, but can be recreated)
       - rn2-logs:/var/log/raspberry-noaa-v2
       
       # At jobs spool (for scheduled captures) - persistent
