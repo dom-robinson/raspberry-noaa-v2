@@ -42,26 +42,12 @@ if [ ! -f /opt/raspberry-noaa-v2/db/panel.db ]; then
 fi
 
 # Check for satdump (required for Meteor captures)
+# SatDump should be baked into the image during build, so this should always pass
 if ! command -v satdump >/dev/null 2>&1; then
-    echo "⚠ WARNING: satdump not found in container!"
-    echo "   Attempting to install from .deb if available..."
-    if [ -f /tmp/satdump.deb ]; then
-        dpkg -i /tmp/satdump.deb 2>&1 || true
-        apt-get install -f -y 2>&1 || true
-    fi
-    if ! command -v satdump >/dev/null 2>&1; then
-        echo "   .deb install failed. SatDump will need to be copied from host."
-        echo "   Run these commands on the host to copy SatDump:"
-        echo "   sudo docker cp /usr/bin/satdump rn2:/usr/bin/satdump"
-        echo "   sudo docker cp /usr/lib/libsatdump_core.so rn2:/usr/lib/ 2>/dev/null || true"
-        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libjemalloc.so.2 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
-        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libvolk.so.2.4 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
-        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libnng.so.1.4.0 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
-        echo "   sudo docker exec rn2 ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1 2>/dev/null || true"
-        echo "   sudo docker cp /usr/share/satdump rn2:/usr/share/ 2>/dev/null || true"
-    else
-        echo "✓ satdump installed successfully from .deb"
-    fi
+    echo "⚠ ERROR: satdump not found in container!"
+    echo "   This should not happen - SatDump is baked into the Docker image."
+    echo "   The Docker build may have failed. Check build logs."
+    exit 1
 else
     echo "✓ satdump found"
 fi

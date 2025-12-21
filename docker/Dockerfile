@@ -84,25 +84,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /srv/images /srv/videos /var/log/raspberry-noaa-v2 /run/php \
     && chown -R www-data:www-data /srv/images /srv/videos
 
-# Copy and install pre-built ARM packages
-# These .deb files are for armhf architecture
-COPY raspberry-noaa-v2/software/satdump_*_armhf.deb /tmp/satdump.deb
+# Copy pre-extracted SatDump files (portable, works on any machine)
+# These were extracted from a working installation to avoid corrupted .deb issues
+# This makes the Docker image self-contained and deployable to any machine
+RUN mkdir -p /usr/lib/arm-linux-gnueabihf /usr/lib/satdump
+COPY docker/satdump-files/usr/bin/satdump /usr/bin/satdump
+COPY docker/satdump-files/usr/lib/libsatdump_core.so /usr/lib/libsatdump_core.so
+COPY docker/satdump-files/usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
+COPY docker/satdump-files/usr/share/satdump/ /usr/share/satdump/
+RUN if [ -d docker/satdump-files/usr/lib/satdump ] && [ "$(ls -A docker/satdump-files/usr/lib/satdump 2>/dev/null)" ]; then \
+        cp -r docker/satdump-files/usr/lib/satdump/* /usr/lib/satdump/ || true; \
+    fi \
+    && chmod +x /usr/bin/satdump \
+    && ldconfig || true \
+    && which satdump || (echo "ERROR: satdump not found after copy!" && exit 1)
+
+# Copy and install other pre-built ARM packages
 COPY raspberry-noaa-v2/software/wxtoimg-armhf*.deb /tmp/wxtoimg.deb
 COPY raspberry-noaa-v2/software/predict_*_armhf.deb /tmp/predict.deb
 
-# Install packages - SatDump .deb may be corrupted, so we'll copy from host in entrypoint if needed
-# Try to install SatDump, but don't fail if it doesn't work (we'll handle in entrypoint)
-RUN dpkg -i /tmp/satdump.deb 2>&1 || echo "SatDump .deb install failed, will copy from host in entrypoint" \
-    && apt-get install -f -y || true \
-    && dpkg -i /tmp/wxtoimg.deb 2>&1 || true \
+# Install wxtoimg and predict
+RUN dpkg -i /tmp/wxtoimg.deb 2>&1 || true \
     && apt-get install -f -y || true \
     && dpkg -i /tmp/predict.deb 2>&1 || true \
     && apt-get install -f -y || true \
     && rm -f /tmp/*.deb \
     && which predict || echo "predict installed"
-
-# Create directory for satdump libraries
-RUN mkdir -p /usr/lib/arm-linux-gnueabihf
 
 # Accept wxtoimg license (for root and pi user)
 RUN mkdir -p /root/.wxtoimg /home/pi/.wxtoimg \
