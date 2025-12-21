@@ -43,17 +43,24 @@ fi
 
 # Check for satdump (required for Meteor captures)
 if ! command -v satdump >/dev/null 2>&1; then
-    echo "⚠ ERROR: satdump not found! Meteor captures will fail."
+    echo "⚠ WARNING: satdump not found in container!"
     echo "   Attempting to install from .deb if available..."
     if [ -f /tmp/satdump.deb ]; then
-        dpkg -i /tmp/satdump.deb || true
-        apt-get install -f -y || true
+        dpkg -i /tmp/satdump.deb 2>&1 || true
+        apt-get install -f -y 2>&1 || true
     fi
     if ! command -v satdump >/dev/null 2>&1; then
-        echo "   ERROR: satdump still not found after retry!"
-        echo "   The .deb package may be corrupted. Container will continue but Meteor captures will fail."
+        echo "   .deb install failed. SatDump will need to be copied from host."
+        echo "   Run these commands on the host to copy SatDump:"
+        echo "   sudo docker cp /usr/bin/satdump rn2:/usr/bin/satdump"
+        echo "   sudo docker cp /usr/lib/libsatdump_core.so rn2:/usr/lib/ 2>/dev/null || true"
+        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libjemalloc.so.2 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
+        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libvolk.so.2.4 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
+        echo "   sudo docker cp /usr/lib/arm-linux-gnueabihf/libnng.so.1.4.0 rn2:/usr/lib/arm-linux-gnueabihf/ 2>/dev/null || true"
+        echo "   sudo docker exec rn2 ln -sf libnng.so.1.4.0 /usr/lib/arm-linux-gnueabihf/libnng.so.1 2>/dev/null || true"
+        echo "   sudo docker cp /usr/share/satdump rn2:/usr/share/ 2>/dev/null || true"
     else
-        echo "✓ satdump installed successfully"
+        echo "✓ satdump installed successfully from .deb"
     fi
 else
     echo "✓ satdump found"
