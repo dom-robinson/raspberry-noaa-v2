@@ -115,7 +115,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Clone and build SatDump 1.2.2
 RUN cd /tmp && \
-    git clone --depth 1 --branch v1.2.2 https://github.com/SatDump/SatDump.git satdump-src && \
+    git clone --depth 1 https://github.com/SatDump/SatDump.git satdump-src && \
+    cd satdump-src && \
+    git checkout 1.2.2 && \
     cd satdump-src && \
     mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
