@@ -135,9 +135,10 @@ RUN cd /tmp && \
           .. && \
     make -j$(nproc) && \
     make install && \
-    cd / && rm -rf /tmp/satdump-src && \
+    cd / && \
+    find /usr -name satdump -type f 2>/dev/null && \
     ldconfig && \
-    which satdump || (echo "ERROR: satdump not found after build!" && exit 1)
+    test -f /usr/bin/satdump && echo "SatDump installed successfully" || (echo "ERROR: satdump binary not found!" && find /usr -name "*satdump*" && exit 1)
 
 # Create symlinks for libraries that plugins expect in /lib/arm-linux-gnueabihf/
 # Some plugins hardcode paths to /lib/ instead of /usr/lib/
