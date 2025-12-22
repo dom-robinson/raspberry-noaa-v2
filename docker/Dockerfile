@@ -96,15 +96,49 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /srv/images /srv/videos /var/log/raspberry-noaa-v2 /run/php \
     && chown -R www-data:www-data /srv/images /srv/videos
 
-# Copy pre-extracted SatDump files (portable, works on any machine)
-# These were extracted from a working installation to avoid corrupted .deb issues
-# This makes the Docker image self-contained and deployable to any machine
-RUN mkdir -p /usr/lib/arm-linux-gnueabihf /usr/lib/satdump
-COPY docker/satdump-files/usr/bin/satdump /usr/bin/satdump
-COPY docker/satdump-files/usr/lib/libsatdump_core.so /usr/lib/libsatdump_core.so
-COPY docker/satdump-files/usr/lib/arm-linux-gnueabihf/ /usr/lib/arm-linux-gnueabihf/
-COPY docker/satdump-files/usr/share/satdump/ /usr/share/satdump/
-COPY docker/satdump-files/usr/lib/satdump/plugins/ /usr/lib/satdump/plugins/
+# Build SatDump 1.2.2 from source (latest stable for ARM32)
+# This ensures a clean, self-contained installation that works reliably
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    cmake \
+    g++ \
+    pkgconf \
+    libfftw3-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk2-dev \
+    libnng-dev \
+    libcurl4-openssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build SatDump 1.2.2
+RUN cd /tmp && \
+    git clone --depth 1 --branch v1.2.2 https://github.com/SatDump/SatDump.git satdump-src && \
+    cd satdump-src && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_GUI=OFF \
+          -DPLUGIN_AIRSPY_SDR_SUPPORT=OFF \
+          -DPLUGIN_AIRSPYHF_SDR_SUPPORT=OFF \
+          -DPLUGIN_HACKRF_SDR_SUPPORT=OFF \
+          -DPLUGIN_SDRPLAY_SDR_SUPPORT=OFF \
+          -DPLUGIN_MIRISDR_SDR_SUPPORT=OFF \
+          -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF \
+          -DPLUGIN_SDRPP_SERVER_SUPPORT=OFF \
+          -DPLUGIN_SPYSERVER_SUPPORT=OFF \
+          -DPLUGIN_REMOTE_SDR_SUPPORT=OFF \
+          -DPLUGIN_NET_SOURCE_SUPPORT=OFF \
+          -DPLUGIN_RTLTCP_SUPPORT=OFF \
+          .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && rm -rf /tmp/satdump-src && \
+    ldconfig && \
+    which satdump || (echo "ERROR: satdump not found after build!" && exit 1)
+
 # Create symlinks for libraries that plugins expect in /lib/arm-linux-gnueabihf/
 # Some plugins hardcode paths to /lib/ instead of /usr/lib/
 RUN mkdir -p /lib/arm-linux-gnueabihf \
@@ -114,10 +148,13 @@ RUN mkdir -p /lib/arm-linux-gnueabihf \
         if [ -f "/usr/lib/arm-linux-gnueabihf/$lib" ] && [ ! -e "/lib/arm-linux-gnueabihf/$lib" ]; then \
             ln -sf "/usr/lib/arm-linux-gnueabihf/$lib" "/lib/arm-linux-gnueabihf/$lib" || true; \
         fi; \
-    done \
-    && chmod +x /usr/bin/satdump \
-    && ldconfig || true \
-    && which satdump || (echo "ERROR: satdump not found after copy!" && exit 1)
+    done
+
+# Clean up build dependencies (keep runtime deps)
+RUN apt-get remove -y git build-essential cmake g++ pkgconf libfftw3-dev libpng-dev libtiff-dev libjemalloc-dev libvolk2-dev libnng-dev libcurl4-openssl-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy and install other pre-built ARM packages
 COPY raspberry-noaa-v2/software/wxtoimg-armhf*.deb /tmp/wxtoimg.deb
