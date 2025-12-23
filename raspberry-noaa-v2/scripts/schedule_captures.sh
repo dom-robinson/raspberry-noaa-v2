@@ -42,15 +42,16 @@ if [ "$OBJ_NAME" == "METEOR-M2 4" ]; then
 fi
 
 # come up with prediction start/end timings for pass
-predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_MS}" | head -1)
-predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_MS}" | tail -1)
-max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_MS}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
-azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_MS}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
+START_TIME_SEC=${START_TIME_MS%000}
+predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | head -1)
+predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | tail -1)
+max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
+azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
 end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
 starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
 
 # get and schedule passes for user-defined days
-while [ "$(date --date="@${end_epoch_time}" +"%s")" -le "${END_TIME_MS}" ]; do
+while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null && [ "$(date --date="@${end_epoch_time}" +"%s" 2>/dev/null || echo 0)" -le "${END_TIME_MS%000}" ]; do
   start_datetime=$(echo "$predict_start" | cut -d " " -f 3-4)
   start_epoch_time=$(echo "$predict_start" | cut -d " " -f 1)
   start_time_seconds=$(echo "$start_datetime" | cut -d " " -f 2 | cut -d ":" -f 3)
@@ -116,8 +117,8 @@ while [ "$(date --date="@${end_epoch_time}" +"%s")" -le "${END_TIME_MS}" ]; do
   fi
 
   next_predict=$(expr "${end_epoch_time}" + 60)
-  predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | head -1)
-  predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | tail -1)
+  predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | head -1)
+  predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | tail -1)
   max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
   azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
   end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)

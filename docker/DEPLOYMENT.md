@@ -1,178 +1,308 @@
 # RN2 Docker Deployment Guide
 
-## Overview
+This guide provides complete instructions for deploying the Raspberry NOAA V2 (RN2) system as a fully self-contained Docker container.
 
-This Docker setup makes RN2 completely self-contained and portable. You can:
-- Deploy to any machine with Docker and an RTL-SDR
-- Switch between RN2 and other SDR applications (e.g., sdr.liveencode.com)
-- Clean up native installations completely
+## Features
+
+- **Fully Self-Contained**: All dependencies bundled in Docker image
+- **Easy Removal**: Simply stop and remove container; all data externalized
+- **External Configuration**: Edit `settings.yml` on host machine without entering container
+- **Data Persistence**: All captured images, videos, and audio stored on host machine
+- **Portable**: Can be deployed to any machine with Docker installed
 
 ## Prerequisites
 
-- Docker and docker-compose installed
-- RTL-SDR dongle connected via USB
-- Traefik network exists: `docker network create traefik`
-- Directories on host: `/srv/images`, `/srv/videos`
+### System Requirements
+- Raspberry Pi with 64-bit OS (Raspberry Pi OS 64-bit recommended)
+- Docker and Docker Compose installed
+- RTL-SDR dongle (for satellite reception)
+- Sufficient disk space for captures (recommended: 20GB+)
 
-## Initial Deployment
+### Install Docker
 
-1. **Copy files to target machine:**
+```bash
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+
+# Install Docker Compose
+sudo apt-get update
+sudo apt-get install -y docker-compose-plugin
+
+# Log out and back in for group changes to take effect
+```
+
+## Quick Start
+
+### 1. Clone Repository
+
+```bash
+cd ~
+git clone https://github.com/dom-robinson/raspberry-noaa-v2.git
+cd raspberry-noaa-v2/docker
+```
+
+### 2. Prepare External Directories
+
+```bash
+# Create directories for external data storage
+mkdir -p config
+mkdir -p data/{images,videos,audio,db,logs,tmp}
+
+# Copy and configure settings file
+cp ../raspberry-noaa-v2/config/settings.yml.sample config/settings.yml
+nano config/settings.yml  # Edit with your location, frequencies, etc.
+```
+
+### 3. Configure Settings
+
+Edit `config/settings.yml` with your specific configuration:
+
+```yaml
+# Location (update with your coordinates)
+latitude: 50.816368
+longitude: -0.065110
+altitude: 30.0
+
+# Receiver settings
+receiver_type: rtlsdr
+meteor_decoder: satdump
+noaa_decoder: wxtoimg
+
+# Enable satellites you want to receive
+meteor_m2_3_schedule: true
+meteor_m2_4_schedule: true
+noaa_15_schedule: true
+noaa_18_schedule: true
+noaa_19_schedule: true
+```
+
+### 4. Build and Start Container
+
+```bash
+# Build the Docker image
+docker compose build
+
+# Start the container
+docker compose up -d
+
+# View logs
+docker compose logs -f
+```
+
+### 5. Access Web Interface
+
+Open your browser and navigate to:
+- `http://<pi-ip-address>/` or `http://localhost/`
+
+The web interface shows scheduled passes, captured images, and system status.
+
+## Directory Structure
+
+```
+docker/
+├── Dockerfile              # Container build definition
+├── docker-compose.yml      # Container orchestration
+├── config/
+│   └── settings.yml        # RN2 configuration (editable on host)
+└── data/
+    ├── images/            # Captured satellite images
+    ├── videos/            # Generated videos/animations
+    ├── audio/             # Raw audio captures
+    ├── db/                # SQLite database
+    ├── logs/              # Application logs
+    └── tmp/               # Temporary files
+```
+
+## Managing the Container
+
+### Start Container
+```bash
+docker compose up -d
+```
+
+### Stop Container
+```bash
+docker compose up -d
+```
+
+### View Logs
+```bash
+# Follow logs in real-time
+docker compose logs -f
+
+# View last 100 lines
+docker compose logs --tail=100
+```
+
+### Restart Container
+```bash
+docker compose restart
+```
+
+### Remove Container (Keeps Data)
+```bash
+# Stop and remove container, but keep volumes
+docker compose down
+
+# Data remains in docker/data/ directory
+```
+
+### Complete Removal
+```bash
+# Remove container and all data
+docker compose down -v
+rm -rf data/ config/
+```
+
+## Editing Configuration
+
+### Settings File
+
+The `settings.yml` file is mounted from the host, so you can edit it directly:
+
+```bash
+# Edit on host machine
+nano docker/config/settings.yml
+
+# Restart container to apply changes
+docker compose restart
+```
+
+### Database Access
+
+```bash
+# Access database from host
+docker exec -it rn2 sqlite3 /home/pi/raspberry-noaa-v2/db/raspberry-noaa-v2.db
+
+# Or copy database to host for backup
+docker cp rn2:/home/pi/raspberry-noaa-v2/db/raspberry-noaa-v2.db ./data/db/
+```
+
+## Updating the Container
+
+### Update Code and Rebuild
+
+```bash
+# Pull latest code
+cd ~/raspberry-noaa-v2
+git pull
+
+# Rebuild container
+cd docker
+docker compose build
+
+# Restart with new image
+docker compose down
+docker compose up -d
+```
+
+## Troubleshooting
+
+### Container Won't Start
+
+```bash
+# Check logs
+docker compose logs
+
+# Check if ports are in use
+sudo netstat -tlnp | grep :80
+
+# Verify USB device access
+lsusb
+```
+
+### No Passes Scheduled
+
+```bash
+# Enter container and manually run scheduler
+docker exec -it rn2 bash
+cd /home/pi/raspberry-noaa-v2
+./scripts/schedule.sh -t -x
+
+# Check database
+sqlite3 db/raspberry-noaa-v2.db "SELECT COUNT(*) FROM predict_passes;"
+```
+
+### Permission Issues
+
+```bash
+# Fix permissions on data directories
+sudo chown -R $USER:$USER docker/data/
+chmod -R 755 docker/data/
+```
+
+### RTL-SDR Not Detected
+
+```bash
+# Check USB device
+lsusb | grep RTL
+
+# Verify device permissions
+ls -la /dev/bus/usb/
+
+# Add udev rules if needed
+sudo nano /etc/udev/rules.d/20-rtlsdr.rules
+# Add: SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0666"
+```
+
+## Backup and Restore
+
+### Backup Data
+
+```bash
+# Backup all captures and data
+tar -czf rn2-backup-$(date +%Y%m%d).tar.gz docker/data/ docker/config/
+
+# Backup database only
+docker exec rn2 sqlite3 /home/pi/raspberry-noaa-v2/db/raspberry-noaa-v2.db .dump > backup.sql
+```
+
+### Restore Data
+
+```bash
+# Extract backup
+tar -xzf rn2-backup-YYYYMMDD.tar.gz
+
+# Restore database
+docker exec -i rn2 sqlite3 /home/pi/raspberry-noaa-v2/db/raspberry-noaa-v2.db < backup.sql
+```
+
+## Migration to New Machine
+
+1. **Backup everything:**
    ```bash
-   scp -r docker/ user@host:/home/user/rn2-docker/
-   scp -r raspberry-noaa-v2/ user@host:/home/user/rn2-docker/
-   scp -r wx-new-deployed/ user@host:/home/user/rn2-docker/
+   tar -czf rn2-migration.tar.gz docker/data/ docker/config/
    ```
 
-2. **Copy .deb packages:**
+2. **On new machine, clone repository:**
    ```bash
-   scp raspberry-noaa-v2/software/*.deb user@host:/home/user/rn2-docker/raspberry-noaa-v2/software/
+   git clone https://github.com/dom-robinson/raspberry-noaa-v2.git
+   cd raspberry-noaa-v2/docker
    ```
 
-3. **Build and start:**
+3. **Extract backup:**
    ```bash
-   cd /home/user/rn2-docker/docker
+   tar -xzf rn2-migration.tar.gz -C .
+   ```
+
+4. **Build and start:**
+   ```bash
    docker compose build
    docker compose up -d
    ```
 
-4. **Verify:**
-   ```bash
-   docker ps | grep rn2
-   docker logs rn2
-   curl https://wrx.liveencode.com/
-   ```
+## Architecture Notes
 
-## Configuration
+- **Base Image**: `debian:bookworm-slim` (64-bit)
+- **Services**: Nginx (web server), PHP-FPM (web interface), SatDump (Meteor decoding)
+- **Volume Mounts**: All persistent data externalized to host
+- **Privileged Mode**: Required for USB device access (RTL-SDR)
+- **Port 80**: Web interface exposed on host
 
-### Location Settings
+## Support
 
-Edit `docker/config/noaa-v2.conf` before building:
-- `LAT`, `LON`, `ALT` - Your coordinates
-- `GROUND_STATION_LOCATION` - Your callsign/location
-
-### Satellite Selection
-
-Edit `docker/config/noaa-v2.conf`:
-- `METEOR_M2_3_SCHEDULE=true/false`
-- `METEOR_M2_4_SCHEDULE=true/false`
-- `NOAA_15_SCHEDULE`, etc.
-
-## Switching Between SDR Applications
-
-### Stop RN2, Start SDR App
-
-```bash
-cd /home/pi/rn2-docker/docker
-./switch-to-sdr.sh
-```
-
-This will:
-1. Check for upcoming captures
-2. Stop RN2 container
-3. Start your SDR container
-
-### Stop SDR App, Start RN2
-
-```bash
-cd /home/pi/rn2-docker/docker
-./switch-to-rn2.sh
-```
-
-This will:
-1. Stop SDR container
-2. Start RN2 container
-3. Wait for health check
-
-## Cleanup Native Installation
-
-**⚠️ Only run this AFTER Docker container is proven working!**
-
-```bash
-cd /home/pi/rn2-docker/docker
-sudo ./cleanup-native.sh
-```
-
-This removes:
-- `/home/pi/raspberry-noaa-v2`
-- `/var/www/wx-new`
-- Native nginx config
-- RN2 crontab entries
-- RN2 at jobs
-
-**Keeps:**
-- `/srv/images` (satellite images)
-- `/srv/videos` (video files)
-- Database (in Docker volume)
-
-## Data Volumes
-
-| Volume | Location | Purpose |
-|--------|----------|---------|
-| `rn2-db` | Docker volume | SQLite database |
-| `rn2-logs` | Docker volume | Application logs |
-| `rn2-at-spool` | Docker volume | Scheduled at jobs |
-| `/srv/images` | Host bind mount | Captured images |
-| `/srv/videos` | Host bind mount | Video files |
-
-## Troubleshooting
-
-### Container won't start
-```bash
-docker logs rn2
-docker inspect rn2
-```
-
-### RTL-SDR not detected
-```bash
-docker exec rn2 rtl_test -t
-# Check USB passthrough in docker-compose.yml
-```
-
-### Passes not scheduling
-```bash
-docker exec rn2 atq
-docker exec rn2 crontab -l -u pi
-docker exec rn2 cat /var/log/raspberry-noaa-v2/schedule.log
-```
-
-### Database issues
-```bash
-docker exec rn2 sqlite3 /opt/raspberry-noaa-v2/db/panel.db ".tables"
-docker exec rn2 ls -la /opt/raspberry-noaa-v2/db/
-```
-
-## Maintenance
-
-### Update container
-```bash
-cd /home/pi/rn2-docker/docker
-docker compose pull
-docker compose build
-docker compose up -d
-```
-
-### View logs
-```bash
-docker logs -f rn2
-docker exec rn2 tail -f /var/log/raspberry-noaa-v2/output.log
-```
-
-### Manual pass scheduling
-```bash
-docker exec -u pi rn2 bash -c 'source /home/pi/.noaa-v2.conf && cd /opt/raspberry-noaa-v2 && ./scripts/schedule.sh -t'
-```
-
-## Portability
-
-To deploy to a new machine:
-
-1. Copy the entire `rn2-docker` directory
-2. Ensure RTL-SDR is connected
-3. Create Traefik network: `docker network create traefik`
-4. Update `docker/config/noaa-v2.conf` with new location
-5. Build and start: `docker compose up -d --build`
-
-All configuration is in the container - no host dependencies!
-
-
-
+For issues or questions:
+- GitHub Issues: https://github.com/dom-robinson/raspberry-noaa-v2/issues
+- Documentation: See `docs/` directory in repository

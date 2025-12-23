@@ -5,85 +5,29 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: rn2:latest
     container_name: rn2
     restart: unless-stopped
-    
-    # RTL-SDR USB device passthrough
-    # Privileged mode required for USB access and rtl_biast
     privileged: true
+    ports:
+      - "80:80"
     devices:
       - /dev/bus/usb:/dev/bus/usb
-    
+    volumes:
+      # Externalize settings.yml for easy editing on host
+      - ./config/settings.yml:/home/pi/raspberry-noaa-v2/config/settings.yml:rw
+      # Externalize all media files to host machine
+      - ./data/images:/srv/images:rw
+      - ./data/videos:/srv/videos:rw
+      - ./data/audio:/srv/audio:rw
+      # Persist database and other data
+      - ./data/db:/home/pi/raspberry-noaa-v2/db:rw
+      - ./data/logs:/var/log/raspberry-noaa-v2:rw
+      - ./data/tmp:/home/pi/raspberry-noaa-v2/tmp:rw
     environment:
       - TZ=Europe/London
-      - NOAA_HOME=/opt/raspberry-noaa-v2
-    
-    volumes:
-      # Persistent data - all stored on NAS to survive SD card replacement
-      # Images stored on NAS
-      - /home/pi/nas/wrx-images:/srv/images
-      # Videos stored on NAS
-      - /home/pi/nas/wrx-videos:/srv/videos
-      # Audio stored on NAS (includes baseband recordings)
-      - /home/pi/nas/wrx-audio:/srv/audio
-      
-      # Database - persistent named volume (on SD card, but small and can be recreated)
-      - rn2-db:/opt/raspberry-noaa-v2/db
-      
-      # Configuration - stored on NAS for easy editing and backup
-      - /home/pi/nas/wrx-config/settings.yml:/opt/raspberry-noaa-v2/config/settings.yml:ro
-      
-      # Logs - persistent named volume (on SD card, but can be recreated)
-      - rn2-logs:/var/log/raspberry-noaa-v2
-      
-      # At jobs spool (for scheduled captures) - persistent
-      - rn2-at-spool:/var/spool/cron/atjobs
-    
-    # Internal port - Traefik handles external routing
-    expose:
-      - "8080"
-    
-    # Also expose locally for direct access during testing
-    ports:
-      - "127.0.0.1:8180:8080"
-    
     networks:
-      - traefik
-      - default
-    
-    labels:
-      # Traefik integration
-      - "traefik.enable=true"
-      - "traefik.http.routers.rn2.rule=Host(`wrx.liveencode.com`)"
-      - "traefik.http.routers.rn2.entrypoints=websecure"
-      - "traefik.http.routers.rn2.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.rn2.middlewares=security-headers@file"
-      - "traefik.http.services.rn2.loadbalancer.server.port=8080"
-      - "traefik.docker.network=traefik"
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    
-    # Logging
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-volumes:
-  rn2-db:
-    driver: local
-  rn2-logs:
-    driver: local
-  rn2-at-spool:
-    driver: local
+      - rn2-network
 
 networks:
-  traefik:
-    external: true
+  rn2-network:
+    driver: bridge
