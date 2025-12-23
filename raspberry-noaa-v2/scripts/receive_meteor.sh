@@ -106,11 +106,30 @@ fi
 interleaving="METEOR_${SAT_NUMBER}_80K_INTERLEAVING"
 mode="$([[ "${!interleaving}" == "true" ]] && echo "_80k" || echo "")"
 
+# SatDump device / gain arguments
+device_args=""
 gain_option=""
+
 if [[ "$receiver" == "rtlsdr" ]]; then
-  gain_option="--source_id $SDR_DEVICE_ID --gain"
+  # Local RTL-SDR: use source_id (numeric index or device string) and gain
+  device_args="--source_id $SDR_DEVICE_ID"
+  gain_option="--gain"
 else
   gain_option="--general_gain"
+fi
+
+# If SDR_DEVICE_ID is of the form rtl_tcp=host:port, switch SatDump to rtl_tcp source
+# and translate that into explicit --ip_address/--port arguments instead of --source_id.
+if [[ "$SDR_DEVICE_ID" == rtl_tcp=* ]]; then
+  hostport="${SDR_DEVICE_ID#rtl_tcp=}"
+  RTL_TCP_HOST="${hostport%%:*}"
+  RTL_TCP_PORT="${hostport##*:}"
+
+  # Use SatDump's rtl_tcp source
+  receiver="rtl_tcp"
+
+  # Replace generic source_id usage with explicit network parameters
+  device_args="--ip_address ${RTL_TCP_HOST} --port ${RTL_TCP_PORT}"
 fi
 
 if [ "$BIAS_TEE" == "-T" ]; then
@@ -204,7 +223,7 @@ fi
 
 log "Recording ${NOAA_HOME} via $receiver at ${METEOR_FREQUENCY} MHz using SatDump record " "INFO"
 audio_temporary_storage_directory="$(dirname "${RAMFS_FILE_BASE}")"
-$SATDUMP live meteor_m2-x_lrpt${mode} "$audio_temporary_storage_directory" --source $receiver --samplerate $samplerate --frequency "${METEOR_FREQUENCY}e6" $gain_option $GAIN $bias_tee_option $finish_processing --timeout $CAPTURE_TIME >> $NOAA_LOG 2>&1
+$SATDUMP live meteor_m2-x_lrpt${mode} "$audio_temporary_storage_directory" --source $receiver $device_args --samplerate $samplerate --frequency "${METEOR_FREQUENCY}e6" $gain_option $GAIN $bias_tee_option $finish_processing --timeout $CAPTURE_TIME >> $NOAA_LOG 2>&1
 mv "$audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" "${RAMFS_AUDIO_BASE}.cadu"
 
 # Wait for baseband recording to finish (it should finish automatically due to -n option)
