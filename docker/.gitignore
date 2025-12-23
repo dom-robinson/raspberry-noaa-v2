@@ -1,0 +1,13 @@
+# Local configuration (should be created from sample)
+config/settings.yml
+
+# Local data directories (contain captured images, videos, etc.)
+data/
+
+# Docker build cache
+.docker/
+
+# Temporary files
+*.tmp
+*.log
+

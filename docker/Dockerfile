@@ -1,9 +1,16 @@
 # RN2 (Raspberry-NOAA-V2) Docker Image
-# Build on Raspberry Pi (ARM32v7)
+# Build on Raspberry Pi (ARM64/aarch64) - 64-bit required
 # 
+# This Dockerfile creates a fully self-contained RN2 container with:
+# - All dependencies bundled
+# - SatDump compiled from source
+# - All tools and libraries included
+# - External volumes for data persistence
+#
 # Build context should be the RN2 project root (parent of docker/)
 
-FROM debian:bullseye-slim
+# Base image: Debian Bookworm (64-bit) for latest RN2 compatibility
+FROM debian:bookworm-slim
 
 # Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
@@ -13,11 +20,12 @@ ENV TZ=Europe/London
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Web server
     nginx \
-    php7.4-fpm \
-    php7.4-sqlite3 \
-    php7.4-curl \
-    php7.4-mbstring \
-    php7.4-xml \
+    php8.2-fpm \
+    php8.2-sqlite3 \
+    php8.2-curl \
+    php8.2-mbstring \
+    php8.2-xml \
+    php8.2-cli \
     # SDR and signal processing
     rtl-sdr \
     librtlsdr-dev \
@@ -141,14 +149,15 @@ RUN cd /tmp && \
     ldconfig && \
     test -f /usr/bin/satdump && echo "SatDump installed successfully" || (echo "ERROR: satdump binary not found!" && find /usr -name "*satdump*" && exit 1)
 
-# Create symlinks for libraries that plugins expect in /lib/arm-linux-gnueabihf/
+# Create symlinks for libraries that plugins expect in /lib/aarch64-linux-gnu/
 # Some plugins hardcode paths to /lib/ instead of /usr/lib/
-RUN mkdir -p /lib/arm-linux-gnueabihf \
+# Note: 64-bit uses aarch64-linux-gnu instead of arm-linux-gnueabihf
+RUN mkdir -p /lib/aarch64-linux-gnu \
     && for lib in libatomic.so.1 libdeflate.so.0 libgomp.so.1 libjbig.so.0 \
                   libjpeg.so.62 libopencl.so.1 libstdc++.so.6 libtiff.so.5 \
-                  libvolk.so.2.4 libwebp.so.6 libnng.so.1 libjemalloc.so.2; do \
-        if [ -f "/usr/lib/arm-linux-gnueabihf/$lib" ] && [ ! -e "/lib/arm-linux-gnueabihf/$lib" ]; then \
-            ln -sf "/usr/lib/arm-linux-gnueabihf/$lib" "/lib/arm-linux-gnueabihf/$lib" || true; \
+                  libvolk.so.2.5 libwebp.so.6 libnng.so.1 libjemalloc.so.2; do \
+        if [ -f "/usr/lib/aarch64-linux-gnu/$lib" ] && [ ! -e "/lib/aarch64-linux-gnu/$lib" ]; then \
+            ln -sf "/usr/lib/aarch64-linux-gnu/$lib" "/lib/aarch64-linux-gnu/$lib" || true; \
         fi; \
     done
 
@@ -176,8 +185,8 @@ RUN mkdir -p /root/.wxtoimg /home/pi/.wxtoimg \
     && echo "yes" > /home/pi/.wxtoimglic
 
 # Configure PHP-FPM
-RUN sed -i 's/listen = .*/listen = \/run\/php\/php7.4-fpm.sock/' /etc/php/7.4/fpm/pool.d/www.conf \
-    && sed -i 's/;clear_env = no/clear_env = no/' /etc/php/7.4/fpm/pool.d/www.conf
+RUN sed -i 's/listen = .*/listen = \/run\/php\/php8.2-fpm.sock/' /etc/php/8.2/fpm/pool.d/www.conf \
+    && sed -i 's/;clear_env = no/clear_env = no/' /etc/php/8.2/fpm/pool.d/www.conf
 
 # Copy nginx configuration
 COPY docker/nginx/rn2.conf /etc/nginx/sites-available/default
