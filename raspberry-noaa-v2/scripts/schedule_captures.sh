@@ -44,6 +44,7 @@ fi
 
 # come up with prediction start/end timings for pass
 START_TIME_SEC=${START_TIME_MS%000}
+END_TIME_SEC=${END_TIME_MS%000}
 predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | head -1)
 predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | tail -1)
 max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
@@ -52,10 +53,27 @@ end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
 starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
 
 # get and schedule passes for user-defined days
-# Check if pass start is within the scheduling window (not just end time)
-while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null && [ "${start_epoch_time}" -le "${END_TIME_MS%000}" ] && [ "${end_epoch_time}" -ge "${START_TIME_MS%000}" ]; do
+# Continue while we have valid predictions and haven't exceeded our end time
+while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null; do
   start_datetime=$(echo "$predict_start" | cut -d " " -f 3-4)
   start_epoch_time=$(echo "$predict_start" | cut -d " " -f 1)
+  
+  # Check if this pass is within our scheduling window
+  # Skip if pass starts after our window ends
+  if [ "${start_epoch_time}" -gt "${END_TIME_SEC}" ]; then
+    break
+  fi
+  # Skip if pass ends before our window starts (but continue to next pass)
+  if [ "${end_epoch_time}" -lt "${START_TIME_SEC}" ]; then
+    next_predict=$(expr "${end_epoch_time}" + 60)
+    predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | head -1)
+    predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | tail -1)
+    max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
+    azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
+    end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
+    starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
+    continue
+  fi
   start_time_seconds=$(echo "$start_datetime" | cut -d " " -f 2 | cut -d ":" -f 3)
   timer=$(expr "${end_epoch_time}" - "${start_epoch_time}" + "${start_time_seconds}")
   #file_date_ext=$(date --date="TZ=\"UTC\" ${start_datetime}" +%Y%m%d-%H%M%S)
