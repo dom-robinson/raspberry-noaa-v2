@@ -130,25 +130,36 @@ fi
 
 # create schedules to call respective receive scripts
 log "Scheduling new capture jobs..." "INFO"
+# Helper function to run schedule_captures.sh with optional logging
+run_schedule_captures() {
+  local sat_name=$1
+  local script=$2
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    $NOAA_HOME/scripts/schedule_captures.sh "$sat_name" "$script" $TLE_OUTPUT $start_time_ms $end_time_ms >> "$NOAA_LOG" 2>&1
+  else
+    $NOAA_HOME/scripts/schedule_captures.sh "$sat_name" "$script" $TLE_OUTPUT $start_time_ms $end_time_ms
+  fi
+}
+
 if [ "$NOAA_15_SCHEDULE" == "true" ]; then
   log "Scheduling NOAA 15 captures..." "INFO"
-  $NOAA_HOME/scripts/schedule_captures.sh "NOAA 15" "receive_noaa.sh" $TLE_OUTPUT $start_time_ms $end_time_ms >> $NOAA_LOG 2>&1
+  run_schedule_captures "NOAA 15" "receive_noaa.sh"
 fi
 if [ "$NOAA_18_SCHEDULE" == "true" ]; then
   log "Scheduling NOAA 18 captures..." "INFO"
-  $NOAA_HOME/scripts/schedule_captures.sh "NOAA 18" "receive_noaa.sh" $TLE_OUTPUT $start_time_ms $end_time_ms >> $NOAA_LOG 2>&1
+  run_schedule_captures "NOAA 18" "receive_noaa.sh"
 fi
 if [ "$NOAA_19_SCHEDULE" == "true" ]; then
   log "Scheduling NOAA 19 captures..." "INFO"
-  $NOAA_HOME/scripts/schedule_captures.sh "NOAA 19" "receive_noaa.sh" $TLE_OUTPUT $start_time_ms $end_time_ms >> $NOAA_LOG 2>&1
+  run_schedule_captures "NOAA 19" "receive_noaa.sh"
 fi
 if [ "$METEOR_M2_3_SCHEDULE" == "true" ]; then
   log "Scheduling Meteor-M2 3 captures..." "INFO"
-  $NOAA_HOME/scripts/schedule_captures.sh "METEOR-M2 3" "receive_meteor.sh" $TLE_OUTPUT $start_time_ms $end_time_ms >> $NOAA_LOG 2>&1
+  run_schedule_captures "METEOR-M2 3" "receive_meteor.sh"
 fi
 if [ "$METEOR_M2_4_SCHEDULE" == "true" ]; then
   log "Scheduling Meteor-M2 4 captures..." "INFO"
-  $NOAA_HOME/scripts/schedule_captures.sh "METEOR-M2 4" "receive_meteor.sh" $TLE_OUTPUT $start_time_ms $end_time_ms >> $NOAA_LOG 2>&1
+  run_schedule_captures "METEOR-M2 4" "receive_meteor.sh"
 fi
 log "Done scheduling jobs!" "INFO"
 
