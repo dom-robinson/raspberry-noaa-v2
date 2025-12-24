@@ -107,7 +107,7 @@ else
   atq_date=$(atq | sort -k 6n -k 3M -k 4n -k 5 -k 7 -k 1 | awk '{print $3 " " $4 ", " $6}' | tail -1)
 fi
 
-start_time_ms=$(date +"%s")
+start_time_ms=$(date +"%s")000
 last_day=$((${DAYS_TO_SCHEDULE_PASSES:-2} - 1))
 end_time_ms=$(date --date="+${last_day} days 23:59:59" +"%s")000
 if [ -z "${atq_date}" ]; then
@@ -123,7 +123,7 @@ else
     log "All passes already scheduled to latest date - nothing to be done" "INFO"
     exit
   else
-    start_time_ms=$(($latest_scheduled_ms + 60))
+    start_time_ms=$(($latest_scheduled_ms + 60))000
     log "Scheduling starting at ${start_time_ms} ms through ${end_time_ms} ms..." "INFO"
   fi
 fi
