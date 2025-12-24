@@ -108,8 +108,8 @@ else
 fi
 
 start_time_ms=$(date +"%s")
-last_day=$(($DAYS_TO_SCHEDULE_PASSES - 1))
-end_time_ms=$(date --date="+${last_day} days 23:59:59" +"%s")
+last_day=$((${DAYS_TO_SCHEDULE_PASSES:-2} - 1))
+end_time_ms=$(date --date="+${last_day} days 23:59:59" +"%s")000
 if [ -z "${atq_date}" ]; then
   log "No passes currently scheduled - scheduling all passes starting now through ${end_time_ms} ms..." "INFO"
 else
