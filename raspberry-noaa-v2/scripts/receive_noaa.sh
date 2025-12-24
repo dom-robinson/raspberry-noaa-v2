@@ -139,8 +139,8 @@ if [[ "$SDR_DEVICE_ID" == rtl_tcp=* ]]; then
   RTL_TCP_HOST="${hostport%%:*}"
   RTL_TCP_PORT="${hostport##*:}"
 
-  # Use SatDump's rtl_tcp source
-  receiver="rtl_tcp"
+  # Use SatDump's rtltcp source (no underscore)
+  receiver="rtltcp"
 
   # Replace generic source_id usage with explicit network parameters
   device_args="--ip_address ${RTL_TCP_HOST} --port ${RTL_TCP_PORT}"
