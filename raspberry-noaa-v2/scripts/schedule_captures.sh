@@ -12,7 +12,8 @@
 #   ./schedule_captures.sh "NOAA 18" "receive_noaa.sh" "weather.tle" 1617422399 1617425300
 
 # import common lib and settings
-. "$HOME/.noaa-v2.conf"
+# Use explicit path instead of $HOME since at jobs may set HOME=/root
+. "/home/pi/.noaa-v2.conf"
 . "$NOAA_HOME/scripts/common.sh"
 
 # map inputs to sane var names

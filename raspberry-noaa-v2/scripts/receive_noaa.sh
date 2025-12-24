@@ -19,7 +19,8 @@
 TIMER_START=$(date '+%s')
 
 # import common lib and settings
-. "$HOME/.noaa-v2.conf"
+# Use explicit path instead of $HOME since at jobs may set HOME=/root
+. "/home/pi/.noaa-v2.conf"
 . "$NOAA_HOME/scripts/common.sh"
 capture_start="$START_DATE $(date '+%Z')"
 
