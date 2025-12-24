@@ -101,9 +101,16 @@ while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null &&
 
     printf -v safe_obj_name "%q" $(echo "${OBJ_NAME}" | sed "s/ /-/g")
     log "Scheduling capture for: ${safe_obj_name} ${file_date_ext} ${max_elev}" "INFO"
+    # Use epoch time directly to avoid date parsing issues with predict's date format
+    at_time=$(date --date="@${start_epoch_time}" +"%H:%M %D" 2>&1)
+    if [ $? -ne 0 ]; then
+      log "Failed to format date from epoch ${start_epoch_time}: ${at_time}" "ERROR"
+      # Fallback: try parsing the start_datetime
+      at_time=$(date --utc --date="${start_datetime}" +"%H:%M %D" 2>&1)
+    fi
     job_output=$(echo "${NOAA_HOME}/scripts/${RECEIVE_SCRIPT} \"${OBJ_NAME}\" ${safe_obj_name}-${file_date_ext} ${TLE_FILE} \
                                                               ${start_epoch_time} ${timer} ${max_elev} ${direction} ${pass_side}" \
-                | at "$(date --date="TZ=\"UTC\" ${start_datetime}" +"%H:%M %D")" ${mail_arg} 2>&1)
+                | at "${at_time}" ${mail_arg} 2>&1)
 
     # attempt to capture the job id if job scheduling succeeded
     at_job_id=$(echo $job_output | sed -n 's/.*job \([0-9]\+\) at.*/\1/p')
