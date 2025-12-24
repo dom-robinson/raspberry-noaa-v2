@@ -52,7 +52,8 @@ end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
 starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
 
 # get and schedule passes for user-defined days
-while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null && [ "$(date --date="@${end_epoch_time}" +"%s" 2>/dev/null || echo 0)" -le "${END_TIME_MS%000}" ]; do
+# Check if pass start is within the scheduling window (not just end time)
+while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null && [ "${start_epoch_time}" -le "${END_TIME_MS%000}" ] && [ "${end_epoch_time}" -ge "${START_TIME_MS%000}" ]; do
   start_datetime=$(echo "$predict_start" | cut -d " " -f 3-4)
   start_epoch_time=$(echo "$predict_start" | cut -d " " -f 1)
   start_time_seconds=$(echo "$start_datetime" | cut -d " " -f 2 | cut -d ":" -f 3)

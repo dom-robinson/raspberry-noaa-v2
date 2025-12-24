@@ -19,8 +19,10 @@ log() {
   # log in place (which for at jobs end up in the linux mail)
   echo "${log_priority} : ${log_message}"
 
-  # log output to a log file
-  echo $(date '+%d-%m-%Y %H:%M') $0 "${log_priority} : ${log_message}" >> "$NOAA_LOG"
+  # log output to a log file (only if NOAA_LOG is set and directory exists)
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    echo $(date '+%d-%m-%Y %H:%M') $0 "${log_priority} : ${log_message}" >> "$NOAA_LOG" 2>/dev/null || true
+  fi
 }
 
 # run as a normal user for any scripts within
