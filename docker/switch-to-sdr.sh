@@ -43,10 +43,23 @@ else
     echo "Please start it manually: docker start $SDR_CONTAINER"
 fi
 
+# Update Traefik routing (disable RN2 routing or point to SDR if applicable)
+TRAEFIK_CONFIG="/home/d2/stats/traefik-config/dynamic/http/services.yml"
+if [ -f "$TRAEFIK_CONFIG" ]; then
+    echo "Updating Traefik routing..."
+    # Option 1: Disable routing by pointing to a non-existent service (will cause 503)
+    # Option 2: Point to SDR service if it exists
+    # For now, we'll comment it out or point to a placeholder
+    # The user can configure SDR routing separately if needed
+    echo "⚠ Traefik routing still points to RN2. Update $TRAEFIK_CONFIG manually if needed."
+    echo "   Current config will cause 503 errors until RN2 is back or routing is updated."
+fi
+
 echo ""
 echo "=== Switch complete ==="
 echo "RN2: stopped"
 echo "SDR: running"
+echo "Routing: wrx.liveencode.com -> (needs manual update if SDR should be routed)"
 echo ""
 echo "To switch back: ./switch-to-rn2.sh"
 

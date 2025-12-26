@@ -33,10 +33,30 @@ for i in {1..30}; do
     sleep 1
 done
 
+# Update Traefik routing to point to RN2
+TRAEFIK_CONFIG="/home/d2/stats/traefik-config/dynamic/http/services.yml"
+if [ -f "$TRAEFIK_CONFIG" ]; then
+    echo "Updating Traefik routing to point to RN2..."
+    cat > "$TRAEFIK_CONFIG" << 'EOF'
+http:
+  services:
+    wrx-service:
+      loadBalancer:
+        servers:
+          - url: "http://pi400:8080"
+EOF
+    echo "✓ Traefik routing updated to RN2"
+    # Reload Traefik (file provider watches for changes, but we can verify)
+    docker restart stats-traefik >/dev/null 2>&1 || true
+else
+    echo "⚠ Traefik config not found at $TRAEFIK_CONFIG"
+fi
+
 echo ""
 echo "=== Switch complete ==="
 echo "SDR: stopped"
 echo "RN2: running"
+echo "Routing: wrx.liveencode.com -> RN2 (pi400:8080)"
 echo ""
 echo "To switch back: ./switch-to-sdr.sh"
 

@@ -140,7 +140,7 @@ RUN cd /tmp && \
           -DPLUGIN_SPYSERVER_SUPPORT=OFF \
           -DPLUGIN_REMOTE_SDR_SUPPORT=OFF \
           -DPLUGIN_NET_SOURCE_SUPPORT=OFF \
-          -DPLUGIN_RTLTCP_SUPPORT=OFF \
+          -DPLUGIN_RTLTCP_SUPPORT=ON \
           .. && \
     make -j$(nproc) && \
     make install && \

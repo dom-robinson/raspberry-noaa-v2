@@ -39,6 +39,9 @@ AUDIO_FILE_BASE="${METEOR_AUDIO_OUTPUT}/${FILENAME_BASE}"
 IMAGE_FILE_BASE="${IMAGE_OUTPUT}/${FILENAME_BASE}"
 IMAGE_THUMB_BASE="${IMAGE_OUTPUT}/thumb/${FILENAME_BASE}"
 
+# Set default RECEIVER_TYPE if not set (will be overridden if rtl_tcp is detected)
+RECEIVER_TYPE=${RECEIVER_TYPE:-rtlsdr}
+
 case "$RECEIVER_TYPE" in
      "rtlsdr")
          samplerate="1.024e6"
@@ -85,7 +88,8 @@ if [ "$SAT_NAME" == "METEOR-M2 3" ]; then
   # want to export all of .noaa-v2.conf because it contains sensitive info
   export GAIN=$METEOR_M2_3_GAIN
   export SUN_MIN_ELEV=$METEOR_M2_3_SUN_MIN_ELEV
-  export SDR_DEVICE_ID=$METEOR_M2_3_SDR_DEVICE_ID
+  # Handle both uppercase and lowercase variable names from config
+  export SDR_DEVICE_ID=${METEOR_M2_3_SDR_DEVICE_ID:-${meteor_m2_3_sdr_device_id}}
   export BIAS_TEE=$METEOR_M2_3_ENABLE_BIAS_TEE
   export FREQ_OFFSET=$METEOR_M2_3_FREQ_OFFSET
   export SAT_MIN_ELEV=$METEOR_M2_3_SAT_MIN_ELEV
@@ -98,7 +102,8 @@ elif [ "$SAT_NAME" == "METEOR-M2 4" ]; then
   # want to export all of .noaa-v2.conf because it contains sensitive info
   export GAIN=$METEOR_M2_4_GAIN
   export SUN_MIN_ELEV=$METEOR_M2_4_SUN_MIN_ELEV
-  export SDR_DEVICE_ID=$METEOR_M2_4_SDR_DEVICE_ID
+  # Handle both uppercase and lowercase variable names from config
+  export SDR_DEVICE_ID=${METEOR_M2_4_SDR_DEVICE_ID:-${meteor_m2_4_sdr_device_id}}
   export BIAS_TEE=$METEOR_M2_4_ENABLE_BIAS_TEE
   export FREQ_OFFSET=$METEOR_M2_4_FREQ_OFFSET
   export SAT_MIN_ELEV=$METEOR_M2_4_SAT_MIN_ELEV

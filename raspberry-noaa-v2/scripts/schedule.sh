@@ -62,25 +62,31 @@ if [ "${update_tle}" == "1" ]; then
 
   # get the txt files for orbit information
   log "Downloading new TLE files from source" "INFO"
-  wget -r "http://${tle_addr}/NORAD/elements/weather.txt" --no-check-certificate -O "${WEATHER_TXT}" >> $NOAA_LOG 2>&1
-  wget -r "http://${tle_addr}/NORAD/elements/amateur.txt" --no-check-certificate -O "${AMATEUR_TXT}" >> $NOAA_LOG 2>&1
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    wget -r "http://${tle_addr}/NORAD/elements/weather.txt" --no-check-certificate -O "${WEATHER_TXT}" >> "$NOAA_LOG" 2>&1
+    wget -r "http://${tle_addr}/NORAD/elements/amateur.txt" --no-check-certificate -O "${AMATEUR_TXT}" >> "$NOAA_LOG" 2>&1
+  else
+    wget -r "http://${tle_addr}/NORAD/elements/weather.txt" --no-check-certificate -O "${WEATHER_TXT}" 2>&1
+    wget -r "http://${tle_addr}/NORAD/elements/amateur.txt" --no-check-certificate -O "${AMATEUR_TXT}" 2>&1
+  fi
   #wget -r "http://${tle_addr}/NORAD/elements/active.txt" --no-check-certificate -O "${ACTIVE_TXT}" >> $NOAA_LOG 2>&1
 
   log "Copying TLEs for SatDump" "INFO"
-  cp "${WEATHER_TXT}" "/home/$TARGET_USER/.config/satdump/satdump_tles.txt" >> $NOAA_LOG 2>&1
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    cp "${WEATHER_TXT}" "/home/$TARGET_USER/.config/satdump/satdump_tles.txt" >> "$NOAA_LOG" 2>&1
+  else
+    cp "${WEATHER_TXT}" "/home/$TARGET_USER/.config/satdump/satdump_tles.txt" 2>&1
+  fi
 
-  # create tle files for scheduling
+  # create tle files for scheduling (Meteor satellites only - NOAA discontinued)
   #   note: it's really unfortunate but a directory structure any deeper than 'tmp' in the
   #   below results in a buffer overflow reported by the predict application, presumably
   #   because it cannot handle that level of sub-directory
   log "Clearing and re-creating TLE file with latest..." "INFO"
   echo -n "" > $TLE_OUTPUT
-  grep "NOAA 15" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
-  grep "NOAA 18" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
-  grep "NOAA 19" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
-  grep "METEOR-M 2" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
-  grep "METEOR-M2 3" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
-  grep "METEOR-M2 4" $WEATHER_TXT -A 2 >> $TLE_OUTPUT
+  grep "METEOR-M 2" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
+  grep "METEOR-M2 3" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
+  grep "METEOR-M2 4" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
 elif [ ! -f $WEATHER_TXT ] || [ ! -f $AMATEUR_TXT ] || [ ! -f $TLE_OUTPUT ]; then
   log "TLE update not specified '-t' but no TLE files present - please re-run with '-t'" "INFO"
   exit 1
@@ -104,7 +110,7 @@ if [ "${wipe_existing}" == "1" ]; then
   $SQLITE3 $DB_FILE "DELETE FROM predict_passes WHERE pass_start > $cur_ms;"
 else
   log "Determining latest scheduled capture job date..." "INFO"
-  atq_date=$(atq | sort -k 6n -k 3M -k 4n -k 5 -k 7 -k 1 | awk '{print $3 " " $4 ", " $6}' | tail -1)
+  atq_date=$(atq | sort -k 6n -k 3M -k 4n -k 5 -k 7 -k 1 | awk '{print $3 " " $4 ", " $6}' | awk 'END{print}')
 fi
 
 start_time_ms=$(date +"%s")000
@@ -141,23 +147,13 @@ run_schedule_captures() {
   fi
 }
 
-if [ "$NOAA_15_SCHEDULE" == "true" ]; then
-  log "Scheduling NOAA 15 captures..." "INFO"
-  run_schedule_captures "NOAA 15" "receive_noaa.sh"
-fi
-if [ "$NOAA_18_SCHEDULE" == "true" ]; then
-  log "Scheduling NOAA 18 captures..." "INFO"
-  run_schedule_captures "NOAA 18" "receive_noaa.sh"
-fi
-if [ "$NOAA_19_SCHEDULE" == "true" ]; then
-  log "Scheduling NOAA 19 captures..." "INFO"
-  run_schedule_captures "NOAA 19" "receive_noaa.sh"
-fi
-if [ "$METEOR_M2_3_SCHEDULE" == "true" ]; then
+# NOAA satellites discontinued - removed from scheduling
+# Schedule Meteor satellites (default to true if not explicitly disabled)
+if [ "${METEOR_M2_3_SCHEDULE:-true}" != "false" ]; then
   log "Scheduling Meteor-M2 3 captures..." "INFO"
   run_schedule_captures "METEOR-M2 3" "receive_meteor.sh"
 fi
-if [ "$METEOR_M2_4_SCHEDULE" == "true" ]; then
+if [ "${METEOR_M2_4_SCHEDULE:-true}" != "false" ]; then
   log "Scheduling Meteor-M2 4 captures..." "INFO"
   run_schedule_captures "METEOR-M2 4" "receive_meteor.sh"
 fi
@@ -188,11 +184,19 @@ if [ "${ENABLE_EMAIL_SCHEDULE_PUSH}" == "true" ]; then
     # assume user has enabled TLS
     web_addr="https://wrx.liveencode.com:${WEBPANEL_TLS_PORT}"
   fi
-  $WKHTMLTOIMG --format jpg --quality 100 $web_addr "${pass_image}" >> $NOAA_LOG 2>&1
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    $WKHTMLTOIMG --format jpg --quality 100 $web_addr "${pass_image}" >> "$NOAA_LOG" 2>&1
+  else
+    $WKHTMLTOIMG --format jpg --quality 100 $web_addr "${pass_image}" 2>&1
+  fi
 
   # crop the header (and optionally, satvis iframe, if enabled) out of pass list
   log "Removing header from pass list image" "INFO"
-  $CONVERT "${pass_image}" -gravity North -chop 0x190 "${pass_image}" >> $NOAA_LOG 2>&1
+  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+    $CONVERT "${pass_image}" -gravity North -chop 0x190 "${pass_image}" >> "$NOAA_LOG" 2>&1
+  else
+    $CONVERT "${pass_image}" -gravity North -chop 0x190 "${pass_image}" 2>&1
+  fi
 
   if [ "${ENABLE_SATVIS}" == "true" ]; then
     log "Removing Satvis iFrame from pass list image" "INFO"

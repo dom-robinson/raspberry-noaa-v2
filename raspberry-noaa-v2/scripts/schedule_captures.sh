@@ -23,34 +23,48 @@ TLE_FILE=$3
 START_TIME_MS=$4
 END_TIME_MS=$5
 
-if [ "$OBJ_NAME" == "NOAA 15" ]; then
-  SAT_MIN_ELEV=$NOAA_15_SAT_MIN_ELEV
-fi
-if [ "$OBJ_NAME" == "NOAA 18" ]; then
-  SAT_MIN_ELEV=$NOAA_18_SAT_MIN_ELEV
-fi
-if [ "$OBJ_NAME" == "NOAA 19" ]; then
-  SAT_MIN_ELEV=$NOAA_19_SAT_MIN_ELEV
-fi
 if [ "$OBJ_NAME" == "METEOR-M 2" ]; then
-  SAT_MIN_ELEV=$METEOR_M2_3_SAT_MIN_ELEV
+  SAT_MIN_ELEV=${METEOR_M2_3_SAT_MIN_ELEV:-10}
 fi
 if [ "$OBJ_NAME" == "METEOR-M2 3" ]; then
-  SAT_MIN_ELEV=$METEOR_M2_3_SAT_MIN_ELEV
+  SAT_MIN_ELEV=${METEOR_M2_3_SAT_MIN_ELEV:-10}
 fi
 if [ "$OBJ_NAME" == "METEOR-M2 4" ]; then
-  SAT_MIN_ELEV=$METEOR_M2_4_SAT_MIN_ELEV
+  SAT_MIN_ELEV=${METEOR_M2_4_SAT_MIN_ELEV:-10}
 fi
+# Default to 10 degrees if not set
+SAT_MIN_ELEV=${SAT_MIN_ELEV:-10}
 
 # come up with prediction start/end timings for pass
 START_TIME_SEC=${START_TIME_MS%000}
 END_TIME_SEC=${END_TIME_MS%000}
-predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | head -1)
-predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | tail -1)
-max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
-azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${START_TIME_SEC}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
-end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
-starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
+QTH_FILE="${NOAA_HOME}/predict.qth"
+
+# Wrapper function to run predict non-interactively
+# Use a simple timeout and pipe approach since expect isn't capturing output well
+run_predict() {
+  local tle_file=$1
+  local sat_name=$2
+  local epoch_time=$3
+  # Use timeout and pipe 'q' to quit predict after it outputs data
+  timeout 3 bash -c "echo q | /usr/bin/predict -t \"$tle_file\" -q \"$QTH_FILE\" -p \"$sat_name\" \"$epoch_time\" 2>/dev/null" || true
+}
+
+predict_output=$(run_predict "$TLE_FILE" "${OBJ_NAME}" "${START_TIME_SEC}")
+# Filter out empty lines and validate output
+predict_start=$(echo "$predict_output" | grep -v "^$" | awk 'NR==1')
+predict_end=$(echo "$predict_output" | grep -v "^$" | awk 'END{print}')
+
+# Validate we got actual data (predict outputs epoch time as first field)
+if [ -z "$predict_start" ] || [ -z "$predict_end" ] || ! echo "$predict_start" | grep -qE "^[0-9]+"; then
+  log "Failed to get valid predict output for ${OBJ_NAME} at ${START_TIME_SEC}" "WARN"
+  exit 0
+fi
+
+max_elev=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 '{if(NF>=5 && $5+0==$5 && $5>max){max=$5}}END{print max}')
+azimuth_at_max=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 -v az=0 '{if(NF>=6 && $5+0==$5 && $6+0==$6 && $5>max){max=$5;az=$6}}END{print az}')
+end_epoch_time=$(echo "${predict_end}" | awk '{print $1}')
+starting_azimuth=$(echo "${predict_start}" | awk '{if(NF>=6) print $6; else print "0"}')
 
 # get and schedule passes for user-defined days
 # Continue while we have valid predictions and haven't exceeded our end time
@@ -60,47 +74,55 @@ while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null; d
   
   # Check if this pass is within our scheduling window
   # Skip if pass starts after our window ends
+  if [ -z "${start_epoch_time}" ] || ! echo "${start_epoch_time}" | grep -qE "^[0-9]+$"; then
+    break
+  fi
   if [ "${start_epoch_time}" -gt "${END_TIME_SEC}" ]; then
     break
   fi
   # Skip if pass ends before our window starts (but continue to next pass)
-  if [ "${end_epoch_time}" -lt "${START_TIME_SEC}" ]; then
-    next_predict=$(expr "${end_epoch_time}" + 60)
-    predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | head -1)
-    predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | tail -1)
-    max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
-    azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
-    end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
-    starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
+  if [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null && [ "${end_epoch_time}" -lt "${START_TIME_SEC}" ]; then
+    next_predict=$(expr "${end_epoch_time}" + 60 2>/dev/null || echo "${START_TIME_SEC}")
+    predict_output=$(run_predict "$TLE_FILE" "${OBJ_NAME}" "${next_predict}")
+    predict_start=$(echo "$predict_output" | grep -v "^$" | awk 'NR==1')
+    predict_end=$(echo "$predict_output" | grep -v "^$" | awk 'END{print}')
+    if [ -z "$predict_start" ] || [ -z "$predict_end" ] || ! echo "$predict_start" | grep -qE "^[0-9]+"; then
+      break
+    fi
+    max_elev=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 '{if(NF>=5 && $5+0==$5 && $5>max){max=$5}}END{print max}')
+    azimuth_at_max=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 -v az=0 '{if(NF>=6 && $5+0==$5 && $6+0==$6 && $5>max){max=$5;az=$6}}END{print az}')
+    end_epoch_time=$(echo "${predict_end}" | awk '{print $1}')
+    starting_azimuth=$(echo "${predict_start}" | awk '{if(NF>=6) print $6; else print "0"}')
     continue
   fi
-  start_time_seconds=$(echo "$start_datetime" | cut -d " " -f 2 | cut -d ":" -f 3)
-  timer=$(expr "${end_epoch_time}" - "${start_epoch_time}" + "${start_time_seconds}")
+  start_time_seconds=$(echo "$start_datetime" | cut -d " " -f 2 | cut -d ":" -f 3 2>/dev/null || echo "0")
+  timer=$(expr "${end_epoch_time}" - "${start_epoch_time}" + "${start_time_seconds}" 2>/dev/null || echo "600")
   #file_date_ext=$(date --date="TZ=\"UTC\" ${start_datetime}" +%Y%m%d-%H%M%S)
   file_date_ext=$(date --utc --date="${start_datetime}" +%Y%m%d-%H%M%S)
 
   schedule_enabled_by_sun_elev=1
   if [ "$OBJ_NAME" == "METEOR-M2 3" ]; then
-      START_SUN_ELEV=$(python3 "$SCRIPTS_DIR"/tools/sun.py "$start_epoch_time")
-      if [ "${START_SUN_ELEV}" -lt "${METEOR_M2_3_SCHEDULE_SUN_MIN_ELEV}" ]; then
+      START_SUN_ELEV=$(python3 "$SCRIPTS_DIR"/tools/sun.py "$start_epoch_time" 2>/dev/null || echo "0")
+      if [ -n "${START_SUN_ELEV}" ] && [ -n "${METEOR_M2_3_SCHEDULE_SUN_MIN_ELEV}" ] && [ "${START_SUN_ELEV}" -lt "${METEOR_M2_3_SCHEDULE_SUN_MIN_ELEV}" ] 2>/dev/null; then
         log "Not scheduling Meteor-M2 3 with START TIME $start_epoch_time because $START_SUN_ELEV is below configured minimum sun elevation $METEOR_M2_3_SCHEDULE_SUN_MIN_ELEV" "INFO"
         schedule_enabled_by_sun_elev=0
       fi
   fi
   if [ "$OBJ_NAME" == "METEOR-M2 4" ]; then
-      START_SUN_ELEV=$(python3 "$SCRIPTS_DIR"/tools/sun.py "$start_epoch_time")
-      if [ "${START_SUN_ELEV}" -lt "${METEOR_M2_4_SCHEDULE_SUN_MIN_ELEV}" ]; then
+      START_SUN_ELEV=$(python3 "$SCRIPTS_DIR"/tools/sun.py "$start_epoch_time" 2>/dev/null || echo "0")
+      if [ -n "${START_SUN_ELEV}" ] && [ -n "${METEOR_M2_4_SCHEDULE_SUN_MIN_ELEV}" ] && [ "${START_SUN_ELEV}" -lt "${METEOR_M2_4_SCHEDULE_SUN_MIN_ELEV}" ] 2>/dev/null; then
         log "Not scheduling Meteor-M2 4 with START TIME $start_epoch_time because $START_SUN_ELEV is below configured minimum sun elevation $METEOR_M2_4_SCHEDULE_SUN_MIN_ELEV" "INFO"
         schedule_enabled_by_sun_elev=0
       fi
   fi
 
   # schedule capture if elevation is above configured minimum
-  if [ "${max_elev}" -gt "${SAT_MIN_ELEV}" ] && [ "${schedule_enabled_by_sun_elev}" -eq "1" ]; then
+  if [ -n "${max_elev}" ] && [ -n "${SAT_MIN_ELEV}" ] && [ "${max_elev}" -gt "${SAT_MIN_ELEV}" ] 2>/dev/null && [ "${schedule_enabled_by_sun_elev}" -eq "1" ]; then
     direction="null"
 
     # calculate travel direction
-    if [ $starting_azimuth -le 90 ] || [ $starting_azimuth -ge 270 ]; then
+    starting_azimuth_num=$(echo "$starting_azimuth" | awk '{print int($1+0)}')
+    if [ -n "$starting_azimuth_num" ] && [ "$starting_azimuth_num" -le 90 ] 2>/dev/null || [ "$starting_azimuth_num" -ge 270 ] 2>/dev/null; then
       direction="Southbound"
     else
       direction="Northbound"
@@ -108,7 +130,8 @@ while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null; d
 
     # calculate side of travel
     pass_side="W"
-    if [ $azimuth_at_max -ge 0 ] && [ $azimuth_at_max -le 180 ]; then
+    azimuth_at_max_num=$(echo "$azimuth_at_max" | awk '{print int($1+0)}')
+    if [ -n "$azimuth_at_max_num" ] && [ "$azimuth_at_max_num" -ge 0 ] 2>/dev/null && [ "$azimuth_at_max_num" -le 180 ] 2>/dev/null; then
       pass_side="E"
     fi
 
@@ -143,11 +166,15 @@ while [ -n "${end_epoch_time}" ] && [ "${end_epoch_time}" -gt 0 ] 2>/dev/null; d
     fi
   fi
 
-  next_predict=$(expr "${end_epoch_time}" + 60)
-  predict_start=$($PREDICT -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | head -1)
-  predict_end=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" 2>/dev/null | tail -1)
-  max_elev=$($PREDICT      -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 '{if($5>max){max=$5}}END{print max}')
-  azimuth_at_max=$($PREDICT   -t $TLE_FILE -p "${OBJ_NAME}" "${next_predict}" | awk -v max=0 -v az=0 '{if($5>max){max=$5;az=$6}}END{print az}')
-  end_epoch_time=$(echo "${predict_end}" | cut -d " " -f 1)
-  starting_azimuth=$(echo "${predict_start}" | awk '{print $6}')
+  next_predict=$(expr "${end_epoch_time}" + 60 2>/dev/null || echo "${END_TIME_SEC}")
+  predict_output=$(run_predict "$TLE_FILE" "${OBJ_NAME}" "${next_predict}")
+  predict_start=$(echo "$predict_output" | grep -v "^$" | awk 'NR==1')
+  predict_end=$(echo "$predict_output" | grep -v "^$" | awk 'END{print}')
+  if [ -z "$predict_start" ] || [ -z "$predict_end" ] || ! echo "$predict_start" | grep -qE "^[0-9]+"; then
+    break
+  fi
+  max_elev=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 '{if(NF>=5 && $5+0==$5 && $5>max){max=$5}}END{print max}')
+  azimuth_at_max=$(echo "$predict_output" | grep -v "^$" | awk -v max=0 -v az=0 '{if(NF>=6 && $5+0==$5 && $6+0==$6 && $5>max){max=$5;az=$6}}END{print az}')
+  end_epoch_time=$(echo "${predict_end}" | awk '{print $1}')
+  starting_azimuth=$(echo "${predict_start}" | awk '{if(NF>=6) print $6; else print "0"}')
 done

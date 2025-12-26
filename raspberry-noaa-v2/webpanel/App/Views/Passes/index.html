@@ -7,11 +7,7 @@
 {% block pre_body %}
   <br><center><h4 style="color: #0ee917;"><strong>NOAA APT and Meteor LRPT Satellite Receiver</strong></h4></center><br>
   <div id="instruments" class="flex-container">
-    {% if constant('Config\\Config::ENABLE_SATVIS') == 'true' %}
-      <div id="satvis" class="d-none d-sm-block flex-child">
-        <iframe name="satvis" src="https://satvis.space/?elements=Point,Label,SensorCone&layers=ArcGis&terrain=None&gs={{ constant('Config\\Config::BASE_STATION_LAT') }},{{ constant('Config\\Config::BASE_STATION_LON') }}&tags=Weather"></iframe>
-      </div>
-    {% endif %}
+    {# Satvis map disabled - removed from UI #}
 
     {% if constant('Config\\Config::ENABLE_ANIMATION') == 'true' %}
       <div id="noaa-animation" class="d-none d-sm-block flex-child">
