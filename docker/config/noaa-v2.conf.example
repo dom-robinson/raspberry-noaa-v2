@@ -1,0 +1,4 @@
+# Space-Track.org API credentials for TLE downloads
+# Register at https://www.space-track.org/ and add your credentials here
+# SPACETRACK_USER=your_username
+# SPACETRACK_PASS=your_password

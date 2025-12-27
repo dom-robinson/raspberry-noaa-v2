@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Scheduling
     at \
     cron \
+    expect \
     # Utilities
     curl \
     wget \
@@ -56,7 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iputils-ping \
     netbase \
     # SatDump dependencies (complete set needed for plugins to work)
-    libfftw3-3 \
+    libfftw3-double3 \
     libfftw3-single3 \
     libfftw3-bin \
     liborc-0.4-0 \
@@ -74,19 +75,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblzma5 \
     libopencl1 \
     libstdc++6 \
-    libtiff5 \
-    libvolk2.4 \
-    libwebp6 \
+    libtiff6 \
+    libvolk2.5 \
+    libwebp7 \
     libz1 \
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip first (Bullseye's pip has TOML parsing bugs)
-RUN pip3 install --upgrade pip
+# Use --break-system-packages for Debian Bookworm's externally-managed-environment
+RUN pip3 install --break-system-packages --upgrade pip
 
 # Install Python dependencies (numpy and Pillow installed via apt above)
-RUN pip3 install --no-cache-dir \
+# Use --break-system-packages for Debian Bookworm's externally-managed-environment
+RUN pip3 install --break-system-packages --no-cache-dir \
     ephem \
     pytz \
     requests \
@@ -167,17 +170,30 @@ RUN apt-get remove -y git build-essential cmake g++ pkgconf libfftw3-dev libpng-
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install other pre-built ARM packages
+# Copy and install wxtoimg (pre-built ARM package)
 COPY raspberry-noaa-v2/software/wxtoimg-armhf*.deb /tmp/wxtoimg.deb
-COPY raspberry-noaa-v2/software/predict_*_armhf.deb /tmp/predict.deb
 
-# Install wxtoimg and predict
+# Install wxtoimg
 RUN dpkg -i /tmp/wxtoimg.deb 2>&1 || true \
     && apt-get install -f -y || true \
-    && dpkg -i /tmp/predict.deb 2>&1 || true \
-    && apt-get install -f -y || true \
-    && rm -f /tmp/*.deb \
-    && which predict || echo "predict installed"
+    && rm -f /tmp/wxtoimg.deb
+
+# Install predict using multiarch (armhf .deb in aarch64 container)
+# Enable multiarch to allow installing 32-bit packages, with qemu for execution
+COPY raspberry-noaa-v2/software/predict_*_armhf.deb /tmp/predict.deb
+
+RUN dpkg --add-architecture armhf \
+    && apt-get update -qq \
+    && apt-get install -y --no-install-recommends \
+        libc6:armhf \
+        qemu-user-static \
+        binfmt-support \
+    && dpkg -i --force-depends /tmp/predict.deb \
+    && apt-get install -f -y \
+    && rm -f /tmp/predict.deb \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && test -f /usr/bin/predict && echo "predict binary installed" || (echo "ERROR: predict not installed!" && exit 1)
 
 # Accept wxtoimg license (for root and pi user)
 RUN mkdir -p /root/.wxtoimg /home/pi/.wxtoimg \

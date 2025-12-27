@@ -228,8 +228,20 @@ if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; t
 fi
 
 log "Recording ${NOAA_HOME} via $receiver at ${METEOR_FREQUENCY} MHz using SatDump record " "INFO"
-audio_temporary_storage_directory="$(dirname "${RAMFS_FILE_BASE}")"
+audio_temporary_storage_directory="$(dirname "${RAMFS_AUDIO_BASE}")"
+mkdir -p "$audio_temporary_storage_directory"
 $SATDUMP live meteor_m2-x_lrpt${mode} "$audio_temporary_storage_directory" --source $receiver $device_args --samplerate $samplerate --frequency "${METEOR_FREQUENCY}e6" $gain_option $GAIN $bias_tee_option $finish_processing --timeout $CAPTURE_TIME >> $NOAA_LOG 2>&1
+SATDUMP_EXIT_CODE=$?
+if [ $SATDUMP_EXIT_CODE -ne 0 ]; then
+  log "ERROR: SatDump failed with exit code $SATDUMP_EXIT_CODE" "ERROR"
+  log "Check logs for details. This pass will be skipped." "ERROR"
+  exit 1
+fi
+if [ ! -f "$audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" ]; then
+  log "ERROR: SatDump did not create output file: $audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" "ERROR"
+  log "SatDump may have crashed or failed silently. Check logs." "ERROR"
+  exit 1
+fi
 mv "$audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" "${RAMFS_AUDIO_BASE}.cadu"
 
 # Wait for baseband recording to finish (it should finish automatically due to -n option)

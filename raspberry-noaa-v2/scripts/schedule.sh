@@ -38,7 +38,8 @@ done
 
 if [ "${update_tle}" == "1" ]; then
   # wait for an IP to be assigned/DNS to be available so the TLE can be retrieved
-  tle_addr="www.celestrak.org"
+  # Check Space-Track.org first, fallback to Celestrak for DNS check
+  tle_addr="www.space-track.org"
   max_iters_sec=60
   sleep_iter_seconds=5
   counter=0
@@ -60,14 +61,93 @@ if [ "${update_tle}" == "1" ]; then
     log "Scheduler resolved TLE endpoint in ${counter} seconds" "INFO"
   fi
 
-  # get the txt files for orbit information
-  log "Downloading new TLE files from source" "INFO"
-  if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
-    wget -r "http://${tle_addr}/NORAD/elements/weather.txt" --no-check-certificate -O "${WEATHER_TXT}" >> "$NOAA_LOG" 2>&1
-    wget -r "http://${tle_addr}/NORAD/elements/amateur.txt" --no-check-certificate -O "${AMATEUR_TXT}" >> "$NOAA_LOG" 2>&1
+  # get the txt files for orbit information from Space-Track.org
+  # Using new gp class API (old tle_latest API deprecated as of 12 Jan 26)
+  # Rate limit: 1x/hr max, timed off-peak
+  log "Downloading new TLE files from Space-Track.org" "INFO"
+  download_success=0
+  
+  # Check if Space-Track credentials are configured
+  if [ -z "$SPACETRACK_USER" ] || [ -z "$SPACETRACK_PASS" ]; then
+    log "Space-Track.org credentials not configured. Set SPACETRACK_USER and SPACETRACK_PASS in .noaa-v2.conf" "ERROR"
+    log "Falling back to Celestrak (may be blocked)" "WARN"
+    # Fallback to Celestrak (may not work due to blocking)
+    if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+      curl -s -L -f "https://www.celestrak.org/pub/TLE/weather.txt" -o "${WEATHER_TXT}" >> "$NOAA_LOG" 2>&1
+      curl -s -L -f "https://www.celestrak.org/pub/TLE/amateur.txt" -o "${AMATEUR_TXT}" >> "$NOAA_LOG" 2>&1
+    else
+      curl -s -L -f "https://www.celestrak.org/pub/TLE/weather.txt" -o "${WEATHER_TXT}" 2>&1
+      curl -s -L -f "https://www.celestrak.org/pub/TLE/amateur.txt" -o "${AMATEUR_TXT}" 2>&1
+    fi
+    if [ -s "${WEATHER_TXT}" ] && ! grep -q "403\|Forbidden\|DOCTYPE" "${WEATHER_TXT}" 2>/dev/null; then
+      download_success=1
+    fi
   else
-    wget -r "http://${tle_addr}/NORAD/elements/weather.txt" --no-check-certificate -O "${WEATHER_TXT}" 2>&1
-    wget -r "http://${tle_addr}/NORAD/elements/amateur.txt" --no-check-certificate -O "${AMATEUR_TXT}" 2>&1
+    # Use Space-Track.org API with authentication
+    # Create cookie file for session management
+    COOKIE_FILE="${NOAA_HOME}/tmp/spacetrack_cookies.txt"
+    
+    # Authenticate and get session cookie
+    if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+      AUTH_RESPONSE=$(curl -s -c "$COOKIE_FILE" -b "$COOKIE_FILE" \
+        -d "identity=${SPACETRACK_USER}" \
+        -d "password=${SPACETRACK_PASS}" \
+        "https://www.space-track.org/ajaxauth/login" >> "$NOAA_LOG" 2>&1)
+    else
+      AUTH_RESPONSE=$(curl -s -c "$COOKIE_FILE" -b "$COOKIE_FILE" \
+        -d "identity=${SPACETRACK_USER}" \
+        -d "password=${SPACETRACK_PASS}" \
+        "https://www.space-track.org/ajaxauth/login" 2>&1)
+    fi
+    
+    # Check if authentication succeeded
+    if echo "$AUTH_RESPONSE" | grep -q "success\|Welcome" || [ -s "$COOKIE_FILE" ]; then
+      log "Space-Track.org authentication successful" "INFO"
+      
+      # Download weather satellites using new gp class API
+      # Filter: decay_date is null (active), epoch > now-10 days, order by NORAD catalog ID
+      # Format: TLE
+      # Note: This gets all active satellites, we'll filter for Meteor satellites when creating orbit.tle
+      WEATHER_QUERY="https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/orderby/norad_cat_id/format/tle"
+      
+      # Download amateur satellites (same query, different output file)
+      AMATEUR_QUERY="https://www.space-track.org/basicspacedata/query/class/gp/decay_date/null-val/epoch/%3Enow-10/orderby/norad_cat_id/format/tle"
+      
+      if [ -n "$NOAA_LOG" ] && [ -d "$(dirname "$NOAA_LOG")" ]; then
+        curl -s -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+          "${WEATHER_QUERY}" -o "${WEATHER_TXT}" >> "$NOAA_LOG" 2>&1
+        curl -s -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+          "${AMATEUR_QUERY}" -o "${AMATEUR_TXT}" >> "$NOAA_LOG" 2>&1
+      else
+        curl -s -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+          "${WEATHER_QUERY}" -o "${WEATHER_TXT}" 2>&1
+        curl -s -b "$COOKIE_FILE" -c "$COOKIE_FILE" \
+          "${AMATEUR_QUERY}" -o "${AMATEUR_TXT}" 2>&1
+      fi
+      
+      # Verify download succeeded
+      if [ -s "${WEATHER_TXT}" ] && ! grep -q "error\|Error\|ERROR" "${WEATHER_TXT}" 2>/dev/null; then
+        download_success=1
+        log "Successfully downloaded TLE files from Space-Track.org" "INFO"
+      else
+        log "Space-Track.org download failed or returned error" "ERROR"
+        if [ -s "${WEATHER_TXT}" ]; then
+          log "Response: $(head -3 "${WEATHER_TXT}")" "ERROR"
+        fi
+      fi
+      
+      # Clean up cookie file
+      rm -f "$COOKIE_FILE" 2>/dev/null
+    else
+      log "Space-Track.org authentication failed" "ERROR"
+      if [ -n "$AUTH_RESPONSE" ]; then
+        log "Auth response: $AUTH_RESPONSE" "ERROR"
+      fi
+    fi
+  fi
+  
+  if [ "$download_success" -eq 0 ]; then
+    log "Failed to download TLE files" "ERROR"
   fi
   #wget -r "http://${tle_addr}/NORAD/elements/active.txt" --no-check-certificate -O "${ACTIVE_TXT}" >> $NOAA_LOG 2>&1
 
@@ -84,9 +164,23 @@ if [ "${update_tle}" == "1" ]; then
   #   because it cannot handle that level of sub-directory
   log "Clearing and re-creating TLE file with latest..." "INFO"
   echo -n "" > $TLE_OUTPUT
-  grep "METEOR-M 2" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
-  grep "METEOR-M2 3" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
-  grep "METEOR-M2 4" $WEATHER_TXT -A 2 >> $TLE_OUTPUT 2>/dev/null || true
+  # Space-Track TLE format is just TLE data lines (no name lines)
+  # Extract Meteor satellites by NORAD catalog numbers:
+  # METEOR-M2 3: 57166, METEOR-M2 4: 57167, METEOR-M 2: 40069
+  for norad in 57166 57167 40069; do
+    line_num=$(grep -n "^1 $norad" "$WEATHER_TXT" | head -1 | cut -d: -f1)
+    if [ -n "$line_num" ]; then
+      # Extract the 2 TLE lines and add a name line for predict
+      case $norad in
+        57166) sat_name="METEOR-M2 3" ;;
+        57167) sat_name="METEOR-M2 4" ;;
+        40069) sat_name="METEOR-M 2" ;;
+        *) sat_name="METEOR" ;;
+      esac
+      echo "$sat_name" >> "$TLE_OUTPUT"
+      sed -n "${line_num},$((line_num+1))p" "$WEATHER_TXT" >> "$TLE_OUTPUT"
+    fi
+  done
 elif [ ! -f $WEATHER_TXT ] || [ ! -f $AMATEUR_TXT ] || [ ! -f $TLE_OUTPUT ]; then
   log "TLE update not specified '-t' but no TLE files present - please re-run with '-t'" "INFO"
   exit 1

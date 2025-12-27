@@ -38,26 +38,50 @@ SAT_MIN_ELEV=${SAT_MIN_ELEV:-10}
 # come up with prediction start/end timings for pass
 START_TIME_SEC=${START_TIME_MS%000}
 END_TIME_SEC=${END_TIME_MS%000}
-QTH_FILE="${NOAA_HOME}/predict.qth"
+QTH_FILE="/home/pi/.predict/predict.qth"
 
 # Wrapper function to run predict non-interactively
-# Use a simple timeout and pipe approach since expect isn't capturing output well
+# Convert relative paths to absolute paths and use qemu-arm-static for 32-bit binary
 run_predict() {
   local tle_file=$1
   local sat_name=$2
   local epoch_time=$3
-  # Use timeout and pipe 'q' to quit predict after it outputs data
-  timeout 3 bash -c "echo q | /usr/bin/predict -t \"$tle_file\" -q \"$QTH_FILE\" -p \"$sat_name\" \"$epoch_time\" 2>/dev/null" || true
+  # Convert relative paths to absolute paths (predict requires absolute paths)
+  local abs_tle_file="$tle_file"
+  if [[ "$tle_file" != /* ]]; then
+    abs_tle_file="$(cd "$NOAA_HOME" && readlink -f "$tle_file" 2>/dev/null || echo "$NOAA_HOME/$tle_file")"
+  fi
+  # Use TERM=linux to allow predict to run with ncurses in non-interactive mode
+  # The -p flag enables quickpredict mode which outputs data directly
+  TERM=linux /usr/bin/predict -t "$abs_tle_file" -q "$QTH_FILE" -p "$sat_name" "$epoch_time" 2>&1 || true
 }
 
-predict_output=$(run_predict "$TLE_FILE" "${OBJ_NAME}" "${START_TIME_SEC}")
-# Filter out empty lines and validate output
-predict_start=$(echo "$predict_output" | grep -v "^$" | awk 'NR==1')
-predict_end=$(echo "$predict_output" | grep -v "^$" | awk 'END{print}')
+# Try to get predict output, searching forward in time if no pass at exact start time
+predict_output=""
+current_time=$START_TIME_SEC
+max_search_seconds=3600  # Search up to 1 hour ahead
+search_count=0
+
+while [ -z "$predict_output" ] && [ $search_count -lt 60 ]; do
+  predict_output=$(run_predict "$TLE_FILE" "${OBJ_NAME}" "${current_time}")
+  # Filter out empty lines and validate output
+  predict_start=$(echo "$predict_output" | grep -v "^$" | awk 'NR==1')
+  predict_end=$(echo "$predict_output" | grep -v "^$" | awk 'END{print}')
+  
+  # Check if we got valid data
+  if [ -n "$predict_start" ] && [ -n "$predict_end" ] && echo "$predict_start" | grep -qE "^[0-9]+"; then
+    break  # Found valid output
+  fi
+  
+  # No valid output, try 60 seconds ahead
+  current_time=$(expr "$current_time" + 60 2>/dev/null || echo "$current_time")
+  search_count=$(expr "$search_count" + 1 2>/dev/null || echo "60")
+  predict_output=""
+done
 
 # Validate we got actual data (predict outputs epoch time as first field)
 if [ -z "$predict_start" ] || [ -z "$predict_end" ] || ! echo "$predict_start" | grep -qE "^[0-9]+"; then
-  log "Failed to get valid predict output for ${OBJ_NAME} at ${START_TIME_SEC}" "WARN"
+  log "Failed to get valid predict output for ${OBJ_NAME} after searching from ${START_TIME_SEC}" "WARN"
   exit 0
 fi
 
