@@ -61,9 +61,26 @@ if command -v satdump >/dev/null 2>&1; then
     fi
     # Check for satdump config file
     if [ ! -f /usr/share/satdump/satdump_cfg.json ]; then
-        echo "⚠ WARNING: satdump config file not found at /usr/share/satdump/satdump_cfg.json"
-        echo "   Meteor captures may fail. Copy from host:"
-        echo "   docker cp /usr/share/satdump rn2:/usr/share/"
+        echo "⚠ WARNING: satdump config file not found, creating default config..."
+        mkdir -p /usr/share/satdump
+        cat > /usr/share/satdump/satdump_cfg.json << 'EOF'
+{
+  "recorder": {
+    "recorder_format": "baseband",
+    "recorder_baseband_format": "f32"
+  },
+  "user": {
+    "satdump_general_location": "",
+    "satdump_general_location_lat": 0.0,
+    "satdump_general_location_lon": 0.0,
+    "satdump_general_location_alt": 0.0,
+    "satdump_general_autostart": false,
+    "satdump_general_autostart_timeout": 10
+  },
+  "modules": []
+}
+EOF
+        echo "✓ satdump config created"
     else
         echo "✓ satdump config found"
     fi
