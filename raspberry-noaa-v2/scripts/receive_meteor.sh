@@ -227,50 +227,56 @@ if [ "$BASEBAND_RECORDING_ENABLED" == "true" ] && [ "$receiver" == "rtlsdr" ]; t
     log "Baseband recording started (PID: $BASEBAND_PID)" "INFO"
 fi
 
-log "Recording ${NOAA_HOME} via $receiver at ${METEOR_FREQUENCY} MHz using rtl_sdr + SatDump offline" "INFO"
+log "Recording ${NOAA_HOME} via $receiver at ${METEOR_FREQUENCY} MHz using SatDump live mode" "INFO"
 audio_temporary_storage_directory="$(dirname "${RAMFS_AUDIO_BASE}")"
 mkdir -p "$audio_temporary_storage_directory"
 
-# WORKAROUND: SatDump live mode has a JSON config bug, so we record baseband and process offline
-# Record baseband using rtl_sdr or rtl_tcp
-BASEBAND_FILE="${audio_temporary_storage_directory}/meteor_baseband_${FILENAME_BASE}.u8"
-FREQ_HZ=$(echo "$METEOR_FREQUENCY * 1000000" | bc | cut -d. -f1)
-SAMPLE_RATE_INT=$(awk "BEGIN {printf \"%.0f\", $samplerate}")
-NUM_SAMPLES=$((CAPTURE_TIME * SAMPLE_RATE_INT))
+# WORKAROUND: SatDump has a JSON config bug that crashes after TLE loading
+# The bug affects both live and offline modes, so we need to patch the config before running
+# Ensure config has all required array fields before SatDump runs
+python3 << 'PYEOF'
+import json
+import os
 
-if [[ "$SDR_DEVICE_ID" == rtl_tcp=* ]]; then
-    # Use rtl_tcp via rtl_sdr
-    hostport="${SDR_DEVICE_ID#rtl_tcp=}"
-    RTL_TCP_HOST="${hostport%%:*}"
-    RTL_TCP_PORT="${hostport##*:}"
-    log "Recording from rtl_tcp at ${RTL_TCP_HOST}:${RTL_TCP_PORT} for ${CAPTURE_TIME} seconds" "INFO"
-    timeout $CAPTURE_TIME rtl_sdr -d rtl_tcp=${RTL_TCP_HOST}:${RTL_TCP_PORT} -f $FREQ_HZ -s $SAMPLE_RATE_INT -g ${GAIN:-8} -n $NUM_SAMPLES "$BASEBAND_FILE" >> $NOAA_LOG 2>&1
-    RTL_EXIT_CODE=$?
-else
-    # Use local RTL-SDR
-    log "Recording from local RTL-SDR for ${CAPTURE_TIME} seconds" "INFO"
-    timeout $CAPTURE_TIME rtl_sdr -d ${SDR_DEVICE_ID:-0} -f $FREQ_HZ -s $SAMPLE_RATE_INT -g ${GAIN:-8} -n $NUM_SAMPLES "$BASEBAND_FILE" >> $NOAA_LOG 2>&1
-    RTL_EXIT_CODE=$?
-fi
+config_paths = [
+    "/usr/share/satdump/satdump_cfg.json",
+    os.path.expanduser("~/.config/satdump/satdump_cfg.json"),
+    "/root/.config/satdump/satdump_cfg.json"
+]
 
-if [ $RTL_EXIT_CODE -ne 0 ] || [ ! -f "$BASEBAND_FILE" ]; then
-    log "ERROR: rtl_sdr recording failed with exit code $RTL_EXIT_CODE" "ERROR"
-    log "Baseband file not created. This pass will be skipped." "ERROR"
-    exit 1
-fi
+for config_path in config_paths:
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            
+            # Ensure all array fields exist and are arrays (not null)
+            array_fields = ["modules", "pipelines", "pipeline_overrides", "module_overrides"]
+            for field in array_fields:
+                if field not in config or config[field] is None:
+                    config[field] = []
+            
+            # Ensure user_interface structure exists
+            if "user_interface" not in config:
+                config["user_interface"] = {}
+            if "default_offline_parameters" not in config["user_interface"]:
+                config["user_interface"]["default_offline_parameters"] = {}
+            
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=2)
+        except:
+            pass
+PYEOF
 
-# Process baseband file with SatDump offline mode
-log "Processing baseband file with SatDump offline mode" "INFO"
-cd "$audio_temporary_storage_directory"
-$SATDUMP meteor_m2-x_lrpt${mode} baseband "$BASEBAND_FILE" "$audio_temporary_storage_directory" --samplerate $samplerate --baseband_format u8 $finish_processing >> $NOAA_LOG 2>&1
+# Now try SatDump live mode
+$SATDUMP live meteor_m2-x_lrpt${mode} "$audio_temporary_storage_directory" --source $receiver $device_args --samplerate $samplerate --frequency "${METEOR_FREQUENCY}e6" $gain_option $GAIN $bias_tee_option $finish_processing --timeout $CAPTURE_TIME >> $NOAA_LOG 2>&1
 SATDUMP_EXIT_CODE=$?
 
 if [ $SATDUMP_EXIT_CODE -ne 0 ]; then
-    log "ERROR: SatDump offline processing failed with exit code $SATDUMP_EXIT_CODE" "ERROR"
+    log "ERROR: SatDump failed with exit code $SATDUMP_EXIT_CODE" "ERROR"
     log "Check logs for details. This pass will be skipped." "ERROR"
     exit 1
 fi
-
 if [ ! -f "$audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" ]; then
     log "ERROR: SatDump did not create output file: $audio_temporary_storage_directory/meteor_m2-x_lrpt${mode}.cadu" "ERROR"
     log "SatDump may have crashed or failed silently. Check logs." "ERROR"
