@@ -107,7 +107,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /srv/images /srv/videos /var/log/raspberry-noaa-v2 /run/php \
     && chown -R www-data:www-data /srv/images /srv/videos
 
-# Build SatDump 1.2.2 from source (latest stable for ARM32)
+# Build SatDump 1.2.0 from source (stable major release - rollback from 1.2.2 due to JSON parsing bug)
 # This ensures a clean, self-contained installation that works reliably
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
@@ -124,11 +124,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and build SatDump 1.2.2
+# Clone and build SatDump 1.2.0
 RUN cd /tmp && \
     git clone https://github.com/SatDump/SatDump.git satdump-src && \
     cd satdump-src && \
-    git checkout 1.2.2 && \
+    git checkout 1.2.0 && \
     mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=/usr \
