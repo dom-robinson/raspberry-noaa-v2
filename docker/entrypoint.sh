@@ -103,12 +103,39 @@ EOF
     "satdump_general_autostart": false,
     "satdump_general_autostart_timeout": 10
   },
-  "modules": []
+  "modules": [],
+  "pipelines": [],
+  "pipeline_overrides": [],
+  "module_overrides": []
 }
 EOF
         chown -R pi:pi /home/pi/.config/satdump
         echo "✓ satdump user config created"
     fi
+    
+    # Fix SatDump pipeline JSON files (remove comments that cause parsing errors)
+    echo "Fixing SatDump pipeline JSON files..."
+    for pipeline_file in /usr/share/satdump/pipelines/*.json; do
+        if [ -f "$pipeline_file" ]; then
+            python3 << PYEOF
+import json
+import re
+try:
+    with open("$pipeline_file", "r") as f:
+        content = f.read()
+    # Remove C-style and single-line comments
+    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+    content = re.sub(r"//.*", "", content)
+    # Parse and rewrite
+    data = json.loads(content)
+    with open("$pipeline_file", "w") as f:
+        json.dump(data, f, indent=2)
+except:
+    pass
+PYEOF
+        fi
+    done
+    echo "✓ SatDump pipeline files fixed"
 fi
 
 # Verify pyyaml is installed
