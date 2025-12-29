@@ -84,6 +84,31 @@ EOF
     else
         echo "✓ satdump config found"
     fi
+    
+    # Also create user config for pi user (SatDump may prefer this)
+    if [ ! -f /home/pi/.config/satdump/satdump_cfg.json ]; then
+        echo "Creating satdump user config for pi user..."
+        mkdir -p /home/pi/.config/satdump
+        cat > /home/pi/.config/satdump/satdump_cfg.json << 'EOF'
+{
+  "recorder": {
+    "recorder_format": "baseband",
+    "recorder_baseband_format": "f32"
+  },
+  "user": {
+    "satdump_general_location": "",
+    "satdump_general_location_lat": 0.0,
+    "satdump_general_location_lon": 0.0,
+    "satdump_general_location_alt": 0.0,
+    "satdump_general_autostart": false,
+    "satdump_general_autostart_timeout": 10
+  },
+  "modules": []
+}
+EOF
+        chown -R pi:pi /home/pi/.config/satdump
+        echo "✓ satdump user config created"
+    fi
 fi
 
 # Verify pyyaml is installed
