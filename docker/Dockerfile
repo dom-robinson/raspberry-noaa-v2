@@ -107,21 +107,48 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /srv/images /srv/videos /var/log/raspberry-noaa-v2 /run/php \
     && chown -R www-data:www-data /srv/images /srv/videos
 
-# Install SatDump 1.2.0 from precompiled .deb package (stable major release - rollback from 1.2.2 due to JSON parsing bug)
-# Using precompiled package is much faster than building from source
+# Build SatDump 1.2.0 from source (stable major release - rollback from 1.2.2 due to JSON parsing bug)
+# Precompiled .deb has architecture mismatch (arm64 vs armhf), so building from source
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    ca-certificates \
+    git \
+    build-essential \
+    cmake \
+    g++ \
+    pkgconf \
+    libfftw3-dev \
+    libpng-dev \
+    libtiff-dev \
+    libjemalloc-dev \
+    libvolk2-dev \
+    libnng-dev \
+    libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install SatDump 1.2.0 ARM64 .deb package
+# Clone and build SatDump 1.2.0
 RUN cd /tmp && \
-    wget -q https://github.com/SatDump/SatDump/releases/download/1.2.0/satdump_1.2.0_arm64.deb && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends /tmp/satdump_1.2.0_arm64.deb && \
-    rm /tmp/satdump_1.2.0_arm64.deb && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    git clone https://github.com/SatDump/SatDump.git satdump-src && \
+    cd satdump-src && \
+    git checkout 1.2.0 && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DBUILD_GUI=OFF \
+          -DPLUGIN_AIRSPY_SDR_SUPPORT=OFF \
+          -DPLUGIN_AIRSPYHF_SDR_SUPPORT=OFF \
+          -DPLUGIN_HACKRF_SDR_SUPPORT=OFF \
+          -DPLUGIN_SDRPLAY_SDR_SUPPORT=OFF \
+          -DPLUGIN_MIRISDR_SDR_SUPPORT=OFF \
+          -DPLUGIN_LIMESDR_SDR_SUPPORT=OFF \
+          -DPLUGIN_SDRPP_SERVER_SUPPORT=OFF \
+          -DPLUGIN_SPYSERVER_SUPPORT=OFF \
+          -DPLUGIN_REMOTE_SDR_SUPPORT=OFF \
+          -DPLUGIN_NET_SOURCE_SUPPORT=OFF \
+          -DPLUGIN_RTLTCP_SUPPORT=ON \
+          .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && \
+    find /usr -name satdump -type f 2>/dev/null && \
     ldconfig && \
     test -f /usr/bin/satdump && echo "SatDump 1.2.0 installed successfully" || (echo "ERROR: satdump binary not found!" && find /usr -name "*satdump*" && exit 1)
 
