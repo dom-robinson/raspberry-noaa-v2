@@ -5,7 +5,13 @@
 {% endblock %}
 
 {% block pre_body %}
-  <br><center><h4 style="color: #0ee917;"><strong>NOAA APT and Meteor LRPT Satellite Receiver</strong></h4></center><br>
+  <br><center><h4 style="color: #0ee917;"><strong>NOAA APT and Meteor LRPT Satellite Receiver</strong></h4></center>
+  <div class="text-center mb-2">
+    <span id="rtltcp-status" class="badge badge-secondary" style="font-size: 0.9em;">
+      <i class="fa fa-circle" id="rtltcp-indicator"></i> <span id="rtltcp-text">Checking rtl_tcp...</span>
+    </span>
+  </div>
+  <br>
   <div id="instruments" class="flex-container">
     {% if constant('Config\\Config::ENABLE_SATVIS') == 'true' %}
       <div id="satvis" class="d-none d-sm-block flex-child">
@@ -125,4 +131,48 @@
 
 {% block js_includes %}
   <script src="/assets/js/tooltips.js"></script>
+  <script>
+    // Check rtl_tcp status
+    function checkRtlTcpStatus() {
+      fetch('/status/rtl_tcp')
+        .then(response => response.json())
+        .then(data => {
+          const indicator = document.getElementById('rtltcp-indicator');
+          const text = document.getElementById('rtltcp-text');
+          const badge = document.getElementById('rtltcp-status');
+          
+          if (data.status === 'online') {
+            indicator.className = 'fa fa-circle';
+            indicator.style.color = '#28a745';
+            text.textContent = 'rtl_tcp: Online (' + data.host + ':' + data.port + ')';
+            badge.className = 'badge badge-success';
+          } else if (data.status === 'offline') {
+            indicator.className = 'fa fa-circle';
+            indicator.style.color = '#dc3545';
+            text.textContent = 'rtl_tcp: Offline';
+            badge.className = 'badge badge-danger';
+          } else {
+            indicator.className = 'fa fa-circle';
+            indicator.style.color = '#ffc107';
+            text.textContent = 'rtl_tcp: Unknown';
+            badge.className = 'badge badge-warning';
+          }
+        })
+        .catch(error => {
+          const indicator = document.getElementById('rtltcp-indicator');
+          const text = document.getElementById('rtltcp-text');
+          const badge = document.getElementById('rtltcp-status');
+          indicator.className = 'fa fa-circle';
+          indicator.style.color = '#dc3545';
+          text.textContent = 'rtl_tcp: Check Failed';
+          badge.className = 'badge badge-danger';
+        });
+    }
+    
+    // Check on page load
+    checkRtlTcpStatus();
+    
+    // Check every 30 seconds
+    setInterval(checkRtlTcpStatus, 30000);
+  </script>
 {% endblock %}
