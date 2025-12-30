@@ -376,34 +376,46 @@ elif [[ "$METEOR_DECODER" == "satdump" ]]; then
   done
 
   log "Flipping Meteor night passes decoded with SatDump" "INFO"
-  for i in MSU-MR/*_corrected.png
-  do
-    $CONVERT "$i" $FLIP "$i" >> $NOAA_LOG 2>&1
-  done
+  # Only process if corrected.png files exist
+  if ls MSU-MR/*_corrected.png 1> /dev/null 2>&1; then
+    for i in MSU-MR/*_corrected.png
+    do
+      $CONVERT "$i" $FLIP "$i" >> $NOAA_LOG 2>&1
+    done
+  else
+    log "No corrected.png files found - SatDump may not have synced or produced images" "WARN"
+  fi
 
     # Renaming files, annotating images, and creating thumbnails
-  for i in MSU-MR/*.png; do
-    path="$(pwd)"
-    image_filename=$(basename "$i")
-    new_name="$image_filename"
+  # Only process if PNG files exist
+  if ls MSU-MR/*.png 1> /dev/null 2>&1; then
+    for i in MSU-MR/*.png; do
+      path="$(pwd)"
+      image_filename=$(basename "$i")
+      new_name="$image_filename"
 
-    # Use parameter expansion to remove the specified prefixes
-    new_name="${new_name#msu_mr_rgb_}"
-    new_name="${new_name#rgb_msu_mr_rgb_}"
-    new_name="${new_name#rgb_msu_mr_rgb_}"
-    new_name="${new_name#rgb_msu_mr_}"
-    new_name="${new_name#msu_mr_}"
+      # Use parameter expansion to remove the specified prefixes
+      new_name="${new_name#msu_mr_rgb_}"
+      new_name="${new_name#rgb_msu_mr_rgb_}"
+      new_name="${new_name#rgb_msu_mr_rgb_}"
+      new_name="${new_name#rgb_msu_mr_}"
+      new_name="${new_name#msu_mr_}"
 
-    # Rename the file with the new name
-    mv "$i" "$path/MSU-MR/$new_name" >> $NOAA_LOG 2>&1
+      # Rename the file with the new name
+      mv "$i" "$path/MSU-MR/$new_name" >> $NOAA_LOG 2>&1
 
-    log "Annotating images and creating thumbnails" "INFO"
-    ${IMAGE_PROC_DIR}/meteor_normalize_annotate.sh "$path/MSU-MR/$new_name" "${IMAGE_FILE_BASE}-${new_name%.png}.jpg" $METEOR_IMAGE_QUALITY >> $NOAA_LOG 2>&1
-    ${IMAGE_PROC_DIR}/thumbnail.sh 300 "${IMAGE_FILE_BASE}-${new_name%.png}.jpg" "${IMAGE_THUMB_BASE}-${new_name%.png}.jpg" >> $NOAA_LOG 2>&1
-    rm "$path/MSU-MR/$new_name" >> $NOAA_LOG 2>&1
-    push_file_list="$push_file_list ${IMAGE_FILE_BASE}-${new_name%.png}.jpg"
-  done
-  rm -r MSU-MR >> $NOAA_LOG 2>&1
+      log "Annotating images and creating thumbnails" "INFO"
+      ${IMAGE_PROC_DIR}/meteor_normalize_annotate.sh "$path/MSU-MR/$new_name" "${IMAGE_FILE_BASE}-${new_name%.png}.jpg" $METEOR_IMAGE_QUALITY >> $NOAA_LOG 2>&1
+      ${IMAGE_PROC_DIR}/thumbnail.sh 300 "${IMAGE_FILE_BASE}-${new_name%.png}.jpg" "${IMAGE_THUMB_BASE}-${new_name%.png}.jpg" >> $NOAA_LOG 2>&1
+      rm "$path/MSU-MR/$new_name" >> $NOAA_LOG 2>&1
+      push_file_list="$push_file_list ${IMAGE_FILE_BASE}-${new_name%.png}.jpg"
+    done
+  else
+    log "No PNG images found in MSU-MR/ - SatDump did not produce any images" "WARN"
+    log "This usually means SatDump never synced to the satellite signal" "WARN"
+  fi
+  # Only remove MSU-MR directory if it exists
+  [ -d "MSU-MR" ] && rm -r MSU-MR >> $NOAA_LOG 2>&1 || true
 
   if [ "${CONTRIBUTE_TO_COMMUNITY_COMPOSITES}" == "true" ]; then
     log "Contributing images for creating community composites" "INFO"
