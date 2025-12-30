@@ -164,6 +164,20 @@ if [ -f /etc/cron.d/rn2 ]; then
     echo "✓ Crontab installed for pi user"
 fi
 
+# Ensure receive scripts are in scripts/ directory (at jobs expect them there)
+if [ -f /home/pi/raspberry-noaa-v2/receive_meteor.sh ] && [ ! -f /home/pi/raspberry-noaa-v2/scripts/receive_meteor.sh ]; then
+    echo "Copying receive_meteor.sh to scripts/ directory..."
+    cp /home/pi/raspberry-noaa-v2/receive_meteor.sh /home/pi/raspberry-noaa-v2/scripts/receive_meteor.sh
+    chmod +x /home/pi/raspberry-noaa-v2/scripts/receive_meteor.sh
+    chown pi:pi /home/pi/raspberry-noaa-v2/scripts/receive_meteor.sh
+fi
+if [ -f /home/pi/raspberry-noaa-v2/receive_noaa.sh ] && [ ! -f /home/pi/raspberry-noaa-v2/scripts/receive_noaa.sh ]; then
+    echo "Copying receive_noaa.sh to scripts/ directory..."
+    cp /home/pi/raspberry-noaa-v2/receive_noaa.sh /home/pi/raspberry-noaa-v2/scripts/receive_noaa.sh
+    chmod +x /home/pi/raspberry-noaa-v2/scripts/receive_noaa.sh
+    chown pi:pi /home/pi/raspberry-noaa-v2/scripts/receive_noaa.sh
+fi
+
 # Schedule initial passes as pi user
 echo "Scheduling satellite passes..."
 su - pi -c "source /home/pi/.noaa-v2.conf && cd /opt/raspberry-noaa-v2 && ./scripts/schedule.sh -t" >> /var/log/raspberry-noaa-v2/schedule.log 2>&1 || true
