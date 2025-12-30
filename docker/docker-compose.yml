@@ -15,11 +15,11 @@ services:
     volumes:
       # Externalize settings.yml for easy editing on host
       - ./config/settings.yml:/home/pi/raspberry-noaa-v2/config/settings.yml:rw
-      # Externalize all media files to host machine
-      - ./data/images:/srv/images:rw
-      - ./data/videos:/srv/videos:rw
-      - ./data/audio:/srv/audio:rw
-      # Persist database and other data
+      # Externalize all media files to USB stick (frees up SD card space)
+      - /mnt/usb-docker/rn2-data/images:/srv/images:rw
+      - /mnt/usb-docker/rn2-data/videos:/srv/videos:rw
+      - /mnt/usb-docker/rn2-data/audio:/srv/audio:rw
+      # Persist database and other data (keep on SD card for performance)
       - ./data/db:/home/pi/raspberry-noaa-v2/db:rw
       - ./data/logs:/var/log/raspberry-noaa-v2:rw
       - ./data/tmp:/home/pi/raspberry-noaa-v2/tmp:rw
