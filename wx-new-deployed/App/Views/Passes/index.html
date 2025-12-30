@@ -42,7 +42,7 @@
     <tbody>
       {% set now_ms = 'now'|date('U') %}
       {% set cur_date = now_ms|date('m/d/y') %}
-      {% set last_date = 0 %}
+      {% set last_date = '' %}
 
       {% if pass.list|length <= 0 %}
         <tr>
@@ -55,7 +55,7 @@
           {% set cur_date = pass.pass_start|date('m/d/y') %}
           {% set pass_end_ms = pass.pass_end|date('U') %}
 
-          {% if last_date < cur_date %}
+          {% if last_date != cur_date %}
             <tr class="date-separator">
               <td colspan="7">{{ cur_date|date(constant('Config\\Config::PASSES_DATE_FORMAT')) }}</td>
             </tr>
