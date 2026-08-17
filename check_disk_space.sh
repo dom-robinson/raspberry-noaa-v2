@@ -51,3 +51,8 @@ echo "=== Checking for USB drives ==="
 lsblk 2>/dev/null || echo "lsblk not available, trying df:"
 df -h | grep -E "media|mnt|usb" || echo "No USB drives found in standard locations"
 
+
+
+
+
+

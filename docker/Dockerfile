@@ -258,9 +258,9 @@ RUN chmod 0644 /etc/cron.d/rn2
 # Expose web port
 EXPOSE 8080
 
-# Health check
+# Health check (nginx listens on port 80 inside container, mapped to 8080 externally)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/ || exit 1
+    CMD curl -f http://localhost:80/ || exit 1
 
 # Start via entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
